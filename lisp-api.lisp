@@ -1,0 +1,78 @@
+(in-package #:pzmq)
+
+(defmacro with-message (name &body body)
+  "Initialize and free ZMQ message around body."
+  `(with-foreign-object (,name '%msg)
+     (msg-init ,name)
+     (unwind-protect (progn ,@body)
+       (msg-close ,name))))
+
+(defun recv-string (socket &key dontwait (encoding cffi:*default-foreign-encoding*))
+  "Receive a message part from a socket as a string."
+  (declare (ignorable dontwait))
+  (with-message msg
+    (msg-recv msg socket (remove nil (list (when dontwait :dontwait))))
+    (foreign-string-to-lisp (msg-data msg) :count (msg-size msg) :encoding encoding)))
+
+(defvar *default-context* nil
+  "Implicit context from @fun{WITH-CONTEXT} for @fun{WITH-SOCKET}.")
+
+(defmacro with-context (name-and-options &body body)
+  "Initialize and destroy ZMQ context around body.
+
+Use NIL for @em{anonymous context}, stored in @variable{*DEFAULT-CONTEXT*}.
+
+Omit @fun{WITH-CONTEXT} altogether, and @fun{WITH-SOCKET} will establish it by itself.
+
+Note: unwind-protected @fun{CTX-DESTROY} will not return until all governed sockets have sent all queued messages, unless they limited their wait time with :LINGER socket parameter.
+@arg[name-and-options]{name | (name options)}
+@arg[name]{name | NIL}
+@arg[options]{:io-threads INT :max-sockets INT; as per @fun{CTX-SET}}"
+  (let ((name name-and-options)
+        (options nil))
+    (when (listp name)
+      (setf name (car name-and-options)
+            options (cdr name-and-options)))
+    `(let* ((*default-context* (ctx-new))
+            ,@(if name `((,name *default-context*))))
+       (unwind-protect
+            (progn
+              ,(when options
+                 `(ctx-set ,name ,@options))
+              ,@body)
+         (ctx-destroy ,(or name '*default-context*))))))
+
+(defmacro with-socket (name-and-context type-and-options &body body)
+  "Initialize and close ZMQ socket around body.  Options are passed to @fun{SETSOCKOPT} one by one.
+
+When context is not specified, it either comes from surrounding @fun{WITH-CONTEXT} or @fun{WITH-SOCKET} in @variable{*DEFAULT-CONTEXT*}, or is established by this @fun{WITH-SOCKET} and stored in @variable{*DEFAULT-CONTEXT*} for the timespan of this block.
+@arg[name-and-context]{name | (name context)}
+@arg[type-and-options]{type | (type :option1 value1 :option2 value2 ...)} "
+  (let* ((context-p (listp name-and-context))
+         (options-p (listp type-and-options))
+         (name (if context-p (car name-and-context) name-and-context))
+         (context (if context-p (cadr name-and-context) '*default-context*))
+         (type (if options-p (car type-and-options) type-and-options))
+         (options (when options-p (cdr type-and-options)))
+         (implicit-context (gensym (string '#:implicit-context))))
+    `(let ((,implicit-context (not (or ,context-p *default-context*))))
+       (when ,implicit-context (setf *default-context* (ctx-new)))
+       (unwind-protect
+            (let ((,name (socket ,context ,type)))
+              (unwind-protect
+                   (progn
+                     ,@(loop
+                         for (option value) on options by #'cddr
+                         collect `(setsockopt ,name ,option ,value))
+                     ,@body)
+                (close ,name)))
+         (when ,implicit-context
+           (ctx-destroy (prog1 *default-context*
+                          (setf *default-context* nil))))))))
+
+(defmacro with-sockets ((&rest socket-definitions) &body body)
+  "Nest multiple sockets."
+  (loop for definition in (reverse socket-definitions)
+        for form = `(with-socket ,@definition ,@body)
+        then `(with-socket ,@definition ,form)
+        finally (return form)))
