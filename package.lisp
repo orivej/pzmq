@@ -5,6 +5,7 @@ Consult @a[http://api.zeromq.org/3-3:zmq]{official C API reference} first.
 
 @begin[Top-level API]{section}
 @aboutfun{with-socket}
+@aboutfun{with-sockets}
 @aboutfun{bind}
 @aboutfun{connect}
 @aboutfun{recv-string}
