@@ -22,7 +22,7 @@
           when (> i burst)
           do (progn
                (setf i 1)
-               (local-time:format-timestring t (local-time:now) :format *local-time-format*)
+               (format-timestring t (now) :format *local-time-format*)
                (write-line reply)))))
 
 
@@ -167,7 +167,7 @@
 (defun launch-task-pipeline (&optional (workers 20) &aux (threads (list)))
   (with-timing (:real total-time)
       (unwind-protect
-           (pzmq:with-context nil
+           (progn
              (dotimes (i workers)
                (push (bt:make-thread #'taskwork :name (format nil "taskwork~d" i)) threads))
              (taskvent)
