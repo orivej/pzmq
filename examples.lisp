@@ -141,8 +141,7 @@
             for workload = (1+ (random 100))
             sum workload into total-msec
             do (pzmq:send sender (princ-to-string workload))
-            finally (format t "Total expected cost: ~d msec.~%" total-msec))
-      (sleep 1))))
+            finally (format t "Total expected cost: ~d msec.~%" total-msec)))))
 
 (defun taskwork (&key (from "tcp://127.0.0.1:5557") (to "tcp://127.0.0.1:5558"))
   (pzmq:with-context nil
