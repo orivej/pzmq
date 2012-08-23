@@ -1,6 +1,5 @@
 (defpackage #:pzmq-test
-  (:use #:cl #:5am #:let-plus)
-  (:export #:pzmq-test-suite))
+  (:use #:cl #:5am #:let-plus))
 
 (in-package #:pzmq-test)
 
@@ -10,3 +9,10 @@
 (test supported-version
   (let+ (((major minor nil) (pzmq:version)))
     (is (and (>= major 3) (>= minor 2)))))
+
+(test request-response
+  (pzmq:with-sockets ((sender :req) (receiver :rep))
+    (pzmq:bind receiver "tcp://*:5555")
+    (pzmq:connect sender "tcp://localhost:5555")
+    (pzmq:send sender "")
+    (is (string= "" (pzmq:recv-string receiver)))))

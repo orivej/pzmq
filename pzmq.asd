@@ -14,7 +14,7 @@
   :components ((:file "compat")))
 
 (asdf:defsystem pzmq-test
-  :depends-on (pzmq fiveam let-plus)
+  :depends-on (pzmq fiveam let-plus bordeaux-threads)
   :components ((:file "tests")))
 
 (asdf:defsystem pzmq-examples
