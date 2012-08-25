@@ -421,11 +421,12 @@ Low-level API. Consider using @fun{WITH-MESSAGE}."
              (call (null-pointer) 0)))
         (t
          (with-foreign-object (val :int)
-           (setf (mem-ref val :int) (case option-name
-                                      ((:ipv4only :delay-attach-on-connect :router-behavior)
-                                       (if option-value 1 0))
-                                      (t
-                                       option-value)))
+           (setf (mem-ref val :int)
+                 (case option-name
+                   ((:ipv4only :delay-attach-on-connect :router-behavior)
+                    (if option-value 1 0))
+                   (t
+                    option-value)))
            (call val :int)))))))
 
 (defcfun* bind :int
