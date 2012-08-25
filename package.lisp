@@ -10,6 +10,9 @@ Consult @a[http://api.zeromq.org/3-3:zmq]{official C API reference} first.
 @aboutfun{connect}
 @aboutfun{recv-string}
 @aboutfun{send}
+@aboutfun{with-poll-items}
+@aboutfun{poll}
+@aboutfun{revents}
 @end{section}
 
 @begin[Middle-level API]{section}
