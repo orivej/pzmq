@@ -206,3 +206,46 @@
           (pzmq:recv-string receiver))
         (when (member :pollin (pzmq:revents items 1))
           (pzmq:recv-string subscriber))))))
+
+;;; Educational pushers and pullers extended with a terminating publisher
+(defun taskwork2 (&key (from "tcp://127.0.0.1:5557")
+                       (to "tcp://127.0.0.1:5558")
+                       (control "tcp://127.0.0.1:5559"))
+  (pzmq:with-context nil
+    (pzmq:with-sockets ((receiver :pull) (sender :push)
+                        (controller (:sub :subscribe "")))
+      (pzmq:connect receiver from)
+      (pzmq:connect sender to)
+      (pzmq:connect controller control)
+      (pzmq:with-poll-items items (receiver controller)
+        (loop
+          do (pzmq:poll items)
+          until (car (pzmq:revents items 1))
+          do (let ((reply (pzmq:recv-string receiver)))
+               (sleep (/ (parse-integer reply) 1000))
+               (pzmq:send sender "")))))))
+
+(defun tasksink2 (&key (receiver-address "tcp://*:5558")
+                       (control-address "tcp://*:5559")
+                       (tasks 100))
+  (pzmq:with-context nil
+    (pzmq:with-sockets ((receiver :pull) (control :pub))
+      (pzmq:bind receiver receiver-address)
+      (pzmq:bind control control-address)
+      (pzmq:recv-string receiver)
+      (with-timing (:real total-time)
+          (progn
+            (dotimes (i tasks)
+              (pzmq:recv-string receiver)
+              (write-char (case (rem i 10) (4 #\/) (9 #\:) (t #\.))))
+            (pzmq:send control "KILL"))
+        (format t "~&Time spent in sink: ~d msec.~%" (round total-time 1/1000))))))
+
+(defun launch-task2-pipeline (&optional (workers 20))
+  (with-timing (:real total-time)
+      (progn
+        (dotimes (i workers)
+          (bt:make-thread #'taskwork2 :name (format nil "taskwork~d" i)))
+        (taskvent)
+        (tasksink2))
+    (format t "~&Real time spent: ~d msec.~%" (round total-time 1/1000))))
