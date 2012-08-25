@@ -278,3 +278,12 @@
           (retransmit frontend backend))
         (when (car (pzmq:revents items 1))
           (retransmit backend frontend))))))
+
+;;; the same, using #'DEVICE
+
+(defun msgqueue (&key (frontend-address "tcp://*:5559")
+                      (backend-address "tcp://*:5560"))
+  (pzmq:with-sockets ((frontend :router) (backend :dealer))
+    (pzmq:bind frontend frontend-address)
+    (pzmq:bind backend backend-address)
+    (pzmq:device :queue frontend backend)))
