@@ -38,12 +38,12 @@ Note: unwind-protected @fun{CTX-DESTROY} will not return until all governed sock
        (unwind-protect
             (progn
               ,(when options
-                 `(ctx-set ,name ,@options))
+                 `(ctx-set *default-context* ,@options))
               ,@body)
          (ctx-destroy ,(or name '*default-context*))))))
 
 (defmacro with-socket (name-and-context type-and-options &body body)
-  "Initialize and close ZMQ socket around body.  Options are passed to @fun{SETSOCKOPT} one by one.
+  "Initialize and close ZMQ socket around body.  Type is one of the types accepted by @fun{SOCKET}.  Options are passed to @fun{SETSOCKOPT} one by one.
 
 When context is not specified, it either comes from surrounding @fun{WITH-CONTEXT} or @fun{WITH-SOCKET} in @variable{*DEFAULT-CONTEXT*}, or is established by this @fun{WITH-SOCKET} and stored in @variable{*DEFAULT-CONTEXT*} for the timespan of this block.
 @arg[name-and-context]{name | (name context)}
