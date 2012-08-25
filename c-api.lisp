@@ -41,6 +41,39 @@ Report ØMQ library version."
 (defun strerror (&optional (errnum (errno)))
   "Get ØMQ error message string."
   (%strerror errnum))
+
+(define-condition c-error (error)
+  ((errno :initarg :errno :reader c-error-errno))
+  (:report (lambda (c stream &aux (errno (c-error-errno c)))
+             (format stream "C error ~d: ~a" errno (strerror errno)))))
+
+(define-condition libzmq-error (c-error) ())
+
+(defmacro with-c-error-check (kind &body body)
+  (assert (member kind '(:int :pointer)))
+  (let ((ret (gensym (symbol-name '#:ret))))
+    `(progn
+       (setf errno 0)
+       (let ((,ret (progn ,@body)))
+         (if ,(case kind
+                (:int `(minusp ,ret))
+                (:pointer `(null-pointer-p ,ret)))
+             (error 'libzmq-error :errno errno)
+             ,ret)))))
+
+(defmacro defcfun* (name return-type &body args)
+  "Simple wrapper for DEFCFUN and DEFUN around WITH-POSIX-ERROR-CHECK."
+  (assert (stringp (car args))) ; required docstring
+  (let ((internal (intern (concatenate 'string "%" (symbol-name name))))
+        (c-name (substitute #\_ #\- (format nil "zmq_~(~a~)" name)))
+        (lambda-list (loop for form in (cdr args) collect (car form)))
+        (docstring (car args)))
+    `(progn
+       (defcfun (,c-name ,internal) ,return-type
+         ,@args)
+       (defun ,name ,lambda-list ,docstring
+         (with-c-error-check ,return-type
+           (,internal ,@lambda-list))))))
 
 ;;; Context
 
@@ -75,39 +108,6 @@ Get context options."
             (ccase option-name
               (:io-threads +io-threads+)
               (:max-sockets +max-sockets+))))
-
-(define-condition c-error (error)
-  ((errno :initarg :errno :reader c-error-errno))
-  (:report (lambda (c stream &aux (errno (c-error-errno c)))
-             (format stream "C error ~d: ~a" errno (strerror errno)))))
-
-(define-condition libzmq-error (c-error) ())
-
-(defmacro with-c-error-check (kind &body body)
-  (assert (member kind '(:int :pointer)))
-  (let ((ret (gensym (symbol-name '#:ret))))
-    `(progn
-       (setf errno 0)
-       (let ((,ret (progn ,@body)))
-         (if ,(case kind
-                (:int `(minusp ,ret))
-                (:pointer `(null-pointer-p ,ret)))
-             (error 'libzmq-error :errno errno)
-             ,ret)))))
-
-(defmacro defcfun* (name return-type &body args)
-  "Simple wrapper for DEFCFUN and DEFUN around WITH-POSIX-ERROR-CHECK."
-  (assert (stringp (car args))) ; required docstring
-  (let ((internal (intern (concatenate 'string "%" (symbol-name name))))
-        (c-name (substitute #\_ #\- (format nil "zmq_~(~a~)" name)))
-        (lambda-list (loop for form in (cdr args) collect (car form)))
-        (docstring (car args)))
-    `(progn
-       (defcfun (,c-name ,internal) ,return-type
-         ,@args)
-       (defun ,name ,lambda-list ,docstring
-         (with-c-error-check ,return-type
-           (,internal ,@lambda-list))))))
 
 (defcfun* ctx-destroy :int
   "Destroy a ØMQ context."

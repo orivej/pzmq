@@ -38,6 +38,8 @@ Consult @a[http://api.zeromq.org/3-3:zmq]{official C API reference} first.
    ;; - error
    #:errno
    #:strerror
+   #:c-error
+   #:libzmq-error
    ;; - context
    #:ctx-new
    #:ctx-set
