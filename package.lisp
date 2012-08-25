@@ -40,6 +40,22 @@ Consult @a[http://api.zeromq.org/3-3:zmq]{official C API reference} first.
    #:strerror
    #:c-error
    #:libzmq-error
+   #:eaddrinuse
+   #:eaddrnotavail
+   #:eagain
+   #:efault
+   #:efsm
+   #:eintr
+   #:einval
+   #:emfile
+   #:emthread
+   #:enocompatprot
+   #:enodev
+   #:enomem
+   #:enotsock
+   #:enotsup
+   #:eprotonosuppo
+   #:eterm
    ;; - context
    #:ctx-new
    #:ctx-set

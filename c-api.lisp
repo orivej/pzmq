@@ -42,16 +42,31 @@ Report ØMQ library version."
   "Get ØMQ error message string."
   (%strerror errnum))
 
+(defun c-error-keyword (errno)
+  (foreign-enum-keyword 'c-errors errno :errorp nil))
+
 (define-condition c-error (error)
   ((errno :initarg :errno :reader c-error-errno))
   (:report (lambda (c stream)
              (let* ((errno (c-error-errno c))
-                    (error-name (foreign-enum-keyword 'c-errors errno
-                                                      :errorp nil)))
+                    (error-name (c-error-keyword errno) ))
                (format stream "C error ~:@(~a~): ~a."
                        (or error-name errno) (strerror errno))))))
 
 (define-condition libzmq-error (c-error) ())
+
+(defmacro define-conditions (parent &rest children)
+  `(progn ,@(loop for child in children
+                  collect `(define-condition ,child (,parent) ()))))
+;;; Generate from "grovel.lisp", export in "package.lisp"
+(define-conditions libzmq-error eaddrinuse eaddrnotavail eagain efault efsm eintr einval emfile emthread enocompatprot enodev enomem enotsock enotsup eprotonosuppo eterm)
+
+
+(defun libzmq-error-condition (errno)
+  (let ((error-keyword (c-error-keyword errno)))
+    (if (not error-keyword)
+        'libzmq-error
+        (intern (symbol-name error-keyword) #.*package*))))
 
 (defmacro with-c-error-check (kind &body body)
   (assert (member kind '(:int :pointer)))
@@ -62,7 +77,7 @@ Report ØMQ library version."
          (if ,(case kind
                 (:int `(minusp ,ret))
                 (:pointer `(null-pointer-p ,ret)))
-             (error 'libzmq-error :errno errno)
+             (error (libzmq-error-condition errno) :errno errno)
              ,ret)))))
 
 (defmacro defcfun* (name return-type &body args)
