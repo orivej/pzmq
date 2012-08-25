@@ -3,8 +3,8 @@
 
 (in-package #:pzmq-test)
 
-(def-suite :pzmq-test-suite)
-(in-suite :pzmq-test-suite)
+(def-suite :pzmq)
+(in-suite :pzmq)
 
 (test supported-version
   (let+ (((major minor nil) (pzmq:version)))

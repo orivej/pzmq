@@ -23,5 +23,4 @@
 
 (defmethod asdf:perform ((op asdf:test-op) (system (eql (find-system :pzmq))))
   (asdf:load-system :pzmq-test)
-  (funcall (intern (string '#:run!) :fiveam)
-           :pzmq-test-suite))
+  (funcall (intern (string '#:run!) :fiveam) :pzmq))
