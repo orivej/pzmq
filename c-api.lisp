@@ -168,13 +168,13 @@ Low-level API. Consider using @fun{WITH-MESSAGE}.
 @see{MSG-INIT}
 @see{MSG-INIT-DATA}"
   (msg :pointer)
-  (size :unsigned-long))
+  (size size))
 
 (defcfun ("zmq_msg_init_data" %msg-init-data) :int
   "Initialise ØMQ message from a supplied buffer. "
   (msg :pointer)
   (data :string)
-  (size :unsigned-long)
+  (size size)
   (ffn :pointer)
   (hint :pointer))
 
@@ -224,7 +224,7 @@ Low-level API. Consider using @fun{WITH-MESSAGE}."
   "Retrieve pointer to message content."
   (msg :pointer))
 
-(defcfun ("zmq_msg_size" msg-size) :unsigned-long
+(defcfun ("zmq_msg_size" msg-size) size
   "Retrieve message content size in bytes."
   (msg :pointer))
 
@@ -435,7 +435,7 @@ Connected socket may not receive messages sent before it was bound.
   "Send a message part on a socket."
   (socket :pointer)
   (buf :pointer)
-  (len :unsigned-long)
+  (len size)
   (flags :int))
 
 (defun send (socket buf &key len dontwait sndmore)
@@ -455,7 +455,7 @@ Connected socket may not receive messages sent before it was bound.
   "Receive a message part from a socket."
   (socket :pointer)
   (buf :string)
-  (len :unsigned-long)
+  (len size)
   (flags :int))
 
 (defcstruct pollitem

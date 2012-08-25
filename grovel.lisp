@@ -1,8 +1,9 @@
 (in-package #:pzmq)
 (include "zmq.h")
+(ctype size "size_t")
 (constantenum
  c-errors
-;;; awk -F '[*:]' '/\*E.+\*::/ {print $2}' doc/* | sort | uniq | awk '{print " ((:" tolower(substr($1, 1)),  "\"" $1 "\"))"}' | xclip
+;;; awk -F '[*:]' '/\*E.+\*::/ {print $2}' doc/* | sort | uniq | awk '{print " ((:" tolower($1),  "\"" $1 "\"))"}' | xclip
  ((:eaddrinuse "EADDRINUSE"))
  ((:eaddrnotavail "EADDRNOTAVAIL"))
  ((:eagain "EAGAIN"))
