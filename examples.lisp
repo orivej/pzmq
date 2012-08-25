@@ -15,7 +15,7 @@
 (defparameter *local-time-format* '((:hour 2) ":" (:min 2) ":" (:sec 2) "." (:msec 3) "  "))
 
 (defun simple-subscriber (&key (server-address "tcp://127.0.0.1:5556") (burst 10000))
-  (pzmq:with-socket socket (:sub :subscribe "")
+  (pzmq:with-socket socket :sub
     (pzmq:connect socket server-address)
     (loop for i from 1
           for reply = (pzmq:recv-string socket :encoding :ascii)
@@ -107,7 +107,7 @@
 (defun local-thr (address message-size message-count)
   "Subscriber exiting after receiving MESSAGE-COUNT messages."
   (pzmq:with-context nil
-    (pzmq:with-socket socket (:sub :subscribe "")
+    (pzmq:with-socket socket :sub
       (pzmq:bind socket address)
       (pzmq:with-message message
         (with-timing (:run run-time :real real-time)
@@ -212,8 +212,7 @@
                        (to "tcp://127.0.0.1:5558")
                        (control "tcp://127.0.0.1:5559"))
   (pzmq:with-context nil
-    (pzmq:with-sockets ((receiver :pull) (sender :push)
-                        (controller (:sub :subscribe "")))
+    (pzmq:with-sockets ((receiver :pull) (sender :push) (controller :sub))
       (pzmq:connect receiver from)
       (pzmq:connect sender to)
       (pzmq:connect controller control)

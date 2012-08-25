@@ -47,6 +47,8 @@ Note: unwind-protected @fun{CTX-DESTROY} will not return until all governed sock
 (defmacro with-socket (name-and-context type-and-options &body body)
   "Initialize and close ZMQ socket around body.  Type is one of the types accepted by @fun{SOCKET}.  Options are passed to @fun{SETSOCKOPT} one by one.
 
+When TYPE is :SUB and :SUBSCRIBE is given in OPTIONS, imply subscribe to all.  If this is undesirable, provide :SUBSCRIBE NIL.
+
 When context is not specified, it either comes from surrounding @fun{WITH-CONTEXT} or @fun{WITH-SOCKET} in @variable{*DEFAULT-CONTEXT*}, or is established by this @fun{WITH-SOCKET} and stored in @variable{*DEFAULT-CONTEXT*} for the timespan of this block.
 @arg[name-and-context]{name | (name context)}
 @arg[type-and-options]{type | (type :option1 value1 :option2 value2 ...)} "
@@ -57,6 +59,8 @@ When context is not specified, it either comes from surrounding @fun{WITH-CONTEX
          (type (if options-p (car type-and-options) type-and-options))
          (options (when options-p (cdr type-and-options)))
          (implicit-context (gensym (string '#:implicit-context))))
+    (when (and (eq type :sub) (not (member :subscribe options)))
+      (setf options (list* :subscribe "" options)))
     `(let ((,implicit-context (not (or ,context-p *default-context*))))
        (when ,implicit-context (setf *default-context* (ctx-new)))
        (unwind-protect
