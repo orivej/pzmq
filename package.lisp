@@ -86,6 +86,7 @@ Consult @a[http://api.zeromq.org/3-3:zmq]{official C API reference} first.
    #:bind
    #:connect
    #:send
+   #:poll
    ;; - device
    #:device
 
@@ -95,4 +96,6 @@ Consult @a[http://api.zeromq.org/3-3:zmq]{official C API reference} first.
    #:recv-string
    #:with-context
    #:with-socket
-   #:with-sockets))
+   #:with-sockets
+   #:with-poll-items
+   #:revents))

@@ -341,7 +341,7 @@ Low-level API. Consider using @fun{WITH-MESSAGE}."
   (:tcp-accept-filter 38)
   (:delay-attach-on-connect 39))
 
-(defbitfield events
+(defbitfield (events :short)
   :pollin
   :pollout
   :pollerr)
@@ -476,13 +476,20 @@ Connected socket may not receive messages sent before it was bound.
 (defcstruct pollitem
   (socket :pointer)
   (fd :int)
-  (events :short)
-  (revents :short))
+  (events events)
+  (revents events))
 
 (defcfun ("zmq_poll" %poll) :int
   (items :pointer)
   (nitems :int)
   (timeout :long))
+
+(defun poll (items &optional (timeout -1))
+  "Input/output multiplexing.
+@arg[items]{Poll items prepared with @fun{WITH-POLL-ITEMS}}
+@arg[timeout]{-1 : wait indefinitely; N : wait N milliseconds} "
+  (with-c-error-check :int
+    (%poll (car items) (cdr items) timeout)))
 
 ;;; Device
 

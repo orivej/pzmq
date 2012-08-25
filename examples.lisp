@@ -189,3 +189,18 @@
       (handler-case (loop (pzmq:recv-string subscriber :dontwait t))
         (pzmq:eagain ()))
       (sleep 1e-3))))
+
+;;; now with POLL
+
+(defun mspoller (&key (sender "tcp://localhost:5557")
+                      (publisher "tcp://localhost:5556")
+                      (filter "10001 "))
+  (pzmq:with-sockets ((receiver :pull)
+                      (subscriber (:sub :subscribe filter)))
+    (pzmq:connect receiver sender)
+    (pzmq:connect subscriber publisher)
+    (pzmq:with-poll-items items (receiver subscriber)
+      (loop
+        (pzmq:poll items)
+        (member :pollin (pzmq:revents items 0))
+        (member :pollin (pzmq:revents items 1))))))

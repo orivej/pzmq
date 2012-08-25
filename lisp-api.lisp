@@ -76,3 +76,32 @@ When context is not specified, it either comes from surrounding @fun{WITH-CONTEX
         for form = `(with-socket ,@definition ,@body)
         then `(with-socket ,@definition ,form)
         finally (return form)))
+
+(defmacro with-poll-items (name (&rest items) &body body)
+  "Prepare POLLITEM array in NAME.  Only ZeroMQ sockets are supported.
+
+Without parrenthes, an item indicates subscription to all events.
+@arg[items]{(item ...)}
+@arg[item]{name | (name [:pollin] [:pollout])}"
+  (let ((nitems (length items)))
+    `(with-foreign-object (,name 'pollitem ,nitems)
+       (loop for item in (list ,@items)
+             for offset from 0
+             for (%socket . %events) =
+                (if (atom item) (list item) item)
+             when (zerop (length %events))
+             do (setf %events (list :pollin :pollout))
+             do (with-foreign-slots ((socket events)
+                                     (mem-aref ,name 'pollitem offset)
+                                     pollitem)
+                  (setf socket %socket
+                        events %events)))
+       (let ((,name (cons ,name ,nitems)))
+         ,@body))))
+
+(defun revents (items subscript)
+  "Return a list of events - :pollin, :pollout or both - that happened to an indicated item, counting from 0.
+@return{([:pollin] [:pollout])}"
+  (assert (< -1 subscript (cdr items)))
+  (foreign-slot-value (mem-aref (car items) 'pollitem subscript)
+                      'pollitem 'revents))
