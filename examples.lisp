@@ -248,3 +248,16 @@
         (taskvent)
         (tasksink2))
     (format t "~&Real time spent: ~d msec.~%" (round total-time 1/1000))))
+
+;;; Educational proxy between a publisher and subscribers
+
+(defun wuproxy (&key (frontend-address "tcp://192.168.55.210:5556")
+                     (backend-address "tcp://10.1.1.0:8100"))
+  (pzmq:with-sockets ((frontend :sub) (backend (:pub)))
+    (pzmq:connect frontend frontend-address)
+    (pzmq:bind backend backend-address)
+    (loop
+      (pzmq:with-message message
+        (pzmq:msg-recv message frontend nil)
+        (let ((more (pzmq:getsockopt frontend :rcvmore)))
+          (pzmq:msg-send message backend :sndmore more))))))
