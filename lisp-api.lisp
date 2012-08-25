@@ -12,7 +12,9 @@
   (declare (ignorable dontwait))
   (with-message msg
     (msg-recv msg socket (remove nil (list (when dontwait :dontwait))))
-    (foreign-string-to-lisp (msg-data msg) :count (msg-size msg) :encoding encoding)))
+    (values
+     (foreign-string-to-lisp (msg-data msg) :count (msg-size msg) :encoding encoding)
+     (getsockopt socket :rcvmore))))
 
 (defvar *default-context* nil
   "Implicit context from @fun{WITH-CONTEXT} for @fun{WITH-SOCKET}.")
