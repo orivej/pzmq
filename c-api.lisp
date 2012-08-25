@@ -434,7 +434,7 @@ Connected socket may not receive messages sent before it was bound.
   (len :unsigned-long)
   (flags :int))
 
-(defun send (socket buf &key (len (length buf)) dontwait sndmore)
+(defun send (socket buf &key len dontwait sndmore)
   "Send a message part on a socket.
 
 @arg[buf]{string, or foreign byte array}
@@ -443,7 +443,7 @@ Connected socket may not receive messages sent before it was bound.
          (flags (foreign-bitfield-value 'send/recv-options options)))
     (with-c-error-check :int
       (if (stringp buf)
-          (with-foreign-string ((buf len) buf)
+          (with-foreign-string ((buf len) (if len (subseq buf 0 len) buf))
             (%send socket buf (1- len) flags))
           (%send socket buf len flags)))))
 
