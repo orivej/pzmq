@@ -202,5 +202,7 @@
     (pzmq:with-poll-items items (receiver subscriber)
       (loop
         (pzmq:poll items)
-        (member :pollin (pzmq:revents items 0))
-        (member :pollin (pzmq:revents items 1))))))
+        (when (member :pollin (pzmq:revents items 0))
+          (pzmq:recv-string receiver))
+        (when (member :pollin (pzmq:revents items 1))
+          (pzmq:recv-string subscriber))))))
