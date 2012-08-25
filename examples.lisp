@@ -173,3 +173,19 @@
              (tasksink))
         (map 'nil #'bt:destroy-thread threads))
     (format t "~&Real time spent: ~d msec.~%" (round total-time 1/1000))))
+
+;;; DONTWAIT as a substitute for POLL
+
+(defun msreader (&key (sender "tcp://localhost:5557")
+                      (publisher "tcp://localhost:5556")
+                      (filter "10001 "))
+  (pzmq:with-sockets ((receiver :pull)
+                      (subscriber (:sub :subscribe filter)))
+    (pzmq:connect receiver sender)
+    (pzmq:connect subscriber publisher)
+    (loop
+      (handler-case (loop (pzmq:recv-string receiver :dontwait t))
+        (pzmq:eagain ()))
+      (handler-case (loop (pzmq:recv-string subscriber :dontwait t))
+        (pzmq:eagain ()))
+      (sleep 1e-3))))
