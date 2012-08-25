@@ -90,17 +90,18 @@ Without parrenthes, an item indicates subscription to all events.
 @arg[item]{name | (name [:pollin] [:pollout])}"
   (let ((nitems (length items)))
     `(with-foreign-object (,name 'pollitem ,nitems)
-       (loop for item in (list ,@items)
-             for offset from 0
-             for (%socket . %events) =
-                (if (atom item) (list item) item)
-             when (zerop (length %events))
-             do (setf %events (list :pollin :pollout))
-             do (with-foreign-slots ((socket events)
-                                     (mem-aref ,name 'pollitem offset)
-                                     pollitem)
-                  (setf socket %socket
-                        events %events)))
+       ,@(loop
+           for item in items
+           for offset from 0
+           for (%socket . %events) = (if (atom item) (list item) item)
+           when (zerop (length %events))
+           do (setf %events (list :pollin :pollout))
+           collect `(with-foreign-slots
+                        ((socket events)
+                         (mem-aref ,name 'pollitem ,offset)
+                         pollitem)
+                      (setf socket ,%socket
+                            events ',%events)))
        (let ((,name (cons ,name ,nitems)))
          ,@body))))
 
