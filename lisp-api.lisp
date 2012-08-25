@@ -9,9 +9,8 @@
 
 (defun recv-string (socket &key dontwait (encoding cffi:*default-foreign-encoding*))
   "Receive a message part from a socket as a string."
-  (declare (ignorable dontwait))
   (with-message msg
-    (msg-recv msg socket (remove nil (list (when dontwait :dontwait))))
+    (msg-recv msg socket :dontwait dontwait)
     (values
      (foreign-string-to-lisp (msg-data msg) :count (msg-size msg) :encoding encoding)
      (getsockopt socket :rcvmore))))

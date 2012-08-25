@@ -206,28 +206,31 @@ Low-level API. Consider using @fun{WITH-MESSAGE}.
     (with-c-error-check :int
       (%msg-init-data msg ptr (length data) 'free-fn nil))))
 
+(defbitfield send/recv-options
+  :dontwait
+  :sndmore)
+
 (defcfun ("zmq_msg_send" %msg-send) :int
   "Send a message part on a socket."
   (msg :pointer)
   (socket :pointer)
   (flags :int))
 
-(defbitfield send/recv-options
-  :dontwait
-  :sndmore)
-
 (defun msg-send (msg socket &key dontwait sndmore)
   "Send a message part on a socket."
-  (let* ((options (remove nil (list (and dontwait :dontwait) (and sndmore :sndmore))))
-         (flags (foreign-bitfield-value 'send/recv-options options)))
-    (with-c-error-check :int
-      (%msg-send msg socket flags))))
+  (with-c-error-check :int
+    (%msg-send msg socket (+ (if dontwait 1 0) (if sndmore 2 0)))))
 
-(defcfun* msg-recv :int
+(defcfun* %msg-recv :int
   "Receive a message part from a socket."
   (msg :pointer)
   (socket :pointer)
-  (flags send/recv-options))
+  (flags :int))
+
+(defun msg-recv (msg socket &key dontwait)
+  "Receive a message part from a socket. "
+  (with-c-error-check :int
+    (%msg-recv msg socket (if dontwait 1 0))))
 
 (defcfun* msg-close :int
   "Release ØMQ message.

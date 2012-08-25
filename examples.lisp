@@ -112,7 +112,7 @@
       (pzmq:with-message message
         (with-timing (:run run-time :real real-time)
             (loop for i from 1 to message-count
-                  do (pzmq:msg-recv message socket nil)
+                  do (pzmq:msg-recv message socket)
                   do (assert (= (pzmq:msg-size message) message-size)))
           (let* ((msgs-throughput-run (/ message-count run-time))
                  (mbod-throughput-run (/ (* msgs-throughput-run message-size 8) (expt 10 6)))
@@ -258,6 +258,6 @@
     (pzmq:bind backend backend-address)
     (loop
       (pzmq:with-message message
-        (pzmq:msg-recv message frontend nil)
+        (pzmq:msg-recv message frontend)
         (let ((more (pzmq:getsockopt frontend :rcvmore)))
           (pzmq:msg-send message backend :sndmore more))))))
