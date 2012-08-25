@@ -44,8 +44,12 @@ Report ØMQ library version."
 
 (define-condition c-error (error)
   ((errno :initarg :errno :reader c-error-errno))
-  (:report (lambda (c stream &aux (errno (c-error-errno c)))
-             (format stream "C error ~d: ~a" errno (strerror errno)))))
+  (:report (lambda (c stream)
+             (let* ((errno (c-error-errno c))
+                    (error-name (foreign-enum-keyword 'c-errors errno
+                                                      :errorp nil)))
+               (format stream "C error ~:@(~a~): ~a."
+                       (or error-name errno) (strerror errno))))))
 
 (define-condition libzmq-error (c-error) ())
 

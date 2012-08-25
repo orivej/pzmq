@@ -1,0 +1,21 @@
+(in-package #:pzmq)
+(include "zmq.h")
+(constantenum
+ c-errors
+;;; awk -F '[*:]' '/\*E.+\*::/ {print $2}' doc/* | sort | uniq | awk '{print " ((:" tolower(substr($1, 1)),  "\"" $1 "\"))"}' | xclip
+ ((:eaddrinuse "EADDRINUSE"))
+ ((:eaddrnotavail "EADDRNOTAVAIL"))
+ ((:eagain "EAGAIN"))
+ ((:efault "EFAULT"))
+ ((:efsm "EFSM"))
+ ((:eintr "EINTR"))
+ ((:einval "EINVAL"))
+ ((:emfile "EMFILE"))
+ ((:emthread "EMTHREAD"))
+ ((:enocompatproto "ENOCOMPATPROTO"))
+ ((:enodev "ENODEV"))
+ ((:enomem "ENOMEM"))
+ ((:enotsock "ENOTSOCK"))
+ ((:enotsup "ENOTSUP"))
+ ((:eprotonosupport "EPROTONOSUPPORT"))
+ ((:eterm "ETERM")))
