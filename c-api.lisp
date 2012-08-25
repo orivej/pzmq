@@ -221,7 +221,7 @@ Low-level API. Consider using @fun{WITH-MESSAGE}.
   (with-c-error-check :int
     (%msg-send msg socket (+ (if dontwait 1 0) (if sndmore 2 0)))))
 
-(defcfun* %msg-recv :int
+(defcfun ("zmq_msg_recv" %msg-recv) :int
   "Receive a message part from a socket."
   (msg :pointer)
   (socket :pointer)
