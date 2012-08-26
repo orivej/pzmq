@@ -313,3 +313,28 @@
                      threads))
              (pzmq:device :queue clients workers))
         (map 'nil #'bt:destroy-thread threads)))))
+
+;;; Educational multithreaded relay
+
+(defun step1 (&key step2)
+  (pzmq:with-socket xmitter :pair
+    (pzmq:connect xmitter step2)
+    (write-line "Step 1 ready, signaling step 2.")
+    (pzmq:send xmitter "READY")))
+
+(defun step2 (&key (step2 "inproc://step2") step3)
+  (pzmq:with-socket receiver :pair
+    (pzmq:bind receiver step2)
+    (bt:make-thread (lambda () (step1 :step2 step2)) :name "step1")
+    (pzmq:recv-string receiver))
+  (pzmq:with-socket xmitter :pair
+    (pzmq:connect xmitter step3)
+    (write-line "Step 2 ready, signaling step 3.")
+    (pzmq:send xmitter "READY")))
+
+(defun mtrelay (&key (step3 "inproc://step3"))
+  (pzmq:with-socket receiver :pair
+    (pzmq:bind receiver step3)
+    (bt:make-thread (lambda () (step2 :step3 step3)) :name "step2")
+    (pzmq:recv-string receiver)
+    (write-line "Test successful!")))
