@@ -338,3 +338,35 @@
     (bt:make-thread (lambda () (step2 :step3 step3)) :name "step2")
     (pzmq:recv-string receiver)
     (write-line "Test successful!")))
+
+;;; Educational synchronized publisher and subscribers
+;;; Doesn't work in multiple threads
+
+(defun syncpub (&key (pub-address "tcp://*:5561")
+                     (sync-address "tcp://*:5562")
+                     (subscribers-expected 4)
+                     (nbroadcasts (expt 10 5)))
+  (pzmq:with-sockets ((publisher :pub) (syncservice :rep))
+    (pzmq:bind publisher pub-address)
+    (pzmq:bind syncservice sync-address)
+    (write-line "Waiting for subscribers...")
+    (loop repeat subscribers-expected
+          do (pzmq:recv-string syncservice)
+          do (pzmq:send syncservice ""))
+    (write-line "Broadcasting messages.")
+    (loop repeat nbroadcasts
+          do (pzmq:send publisher "Rhubarb")
+          finally (pzmq:send publisher "END"))))
+
+(defun syncsub (&key (pub-node "tcp://localhost:5561")
+                     (sync-node "tcp://localhost:5562"))
+  (pzmq:with-sockets ((subscriber :sub) (syncclient :req))
+    (pzmq:connect subscriber pub-node)
+    (sleep 0.1)
+    (pzmq:connect syncclient sync-node)
+    (pzmq:send syncclient "")
+    (pzmq:recv-string syncclient)
+    (loop for broadcast = (pzmq:recv-string subscriber :encoding :ascii)
+          until (string= "END" broadcast)
+          count t into nupdates
+          finally (format t "Received ~d updates~%" nupdates))))
