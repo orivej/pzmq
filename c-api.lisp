@@ -75,7 +75,7 @@ Report ØMQ library version."
        (setf errno 0)
        (let ((,ret (progn ,@body)))
          (if ,(case kind
-                (:int `(minusp ,ret))
+                (:int `(minusp (the fixnum ,ret)))
                 (:pointer `(null-pointer-p ,ret)))
              (error (libzmq-error-condition errno) :errno errno)
              ,ret)))))
@@ -457,17 +457,21 @@ Connected socket may not receive messages sent before it was bound.
   (len size)
   (flags :int))
 
-(defun send (socket buf &key len dontwait sndmore)
+(defun send (socket buf &key len dontwait sndmore
+                             (encoding cffi:*default-foreign-encoding*))
+  (declare (optimize speed))
   "Send a message part on a socket.
 
 @arg[buf]{string, or foreign byte array}
-@arg[len]{ignored, or array size}"
-  (let* ((options (remove nil (list (and dontwait :dontwait) (and sndmore :sndmore))))
-         (flags (foreign-bitfield-value 'send/recv-options options)))
+@arg[len]{ignored, or array size} "
+  (let ((flags (+ (if dontwait 1 0) (if sndmore 2 0))))
     (with-c-error-check :int
       (if (stringp buf)
-          (with-foreign-string ((buf len) (if len (subseq buf 0 len) buf))
-            (%send socket buf (1- len) flags))
+          (with-foreign-string ((buf len) (if len (subseq buf 0 len) buf)
+                                :encoding encoding)
+            (locally (declare (type (integer 1 #.most-positive-fixnum)
+                                    len))
+              (%send socket buf (1- len) flags)))
           (%send socket buf len flags)))))
 
 (defcfun ("zmq_recv" %recv) :int
