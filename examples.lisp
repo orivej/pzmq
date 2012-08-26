@@ -287,3 +287,29 @@
     (pzmq:bind frontend frontend-address)
     (pzmq:bind backend backend-address)
     (pzmq:device :queue frontend backend)))
+
+;;; Educational multithreaded responder
+
+(defun mtworker (&key (worker-address "inproc://workers"))
+  (pzmq:with-socket receiver :rep
+    (pzmq:connect receiver worker-address)
+    (loop
+      (format t "Received request: [~a]~%" (pzmq:recv-string receiver))
+      (sleep 1)
+      (pzmq:send receiver "World"))))
+
+(defun mtserver (&key (listen-address "tcp://*:5555")
+                      (workers-address "inproc://workers")
+                      (nthreads 20))
+  (pzmq:with-sockets ((clients :router) (workers :dealer))
+    (pzmq:bind clients listen-address)
+    (pzmq:bind workers workers-address)
+    (let ((threads (list)))
+      (unwind-protect
+           (progn
+             (dotimes (i nthreads)
+               (push (bt:make-thread #'mtworker
+                                     :name (format nil "mtworker~d" i))
+                     threads))
+             (pzmq:device :queue clients workers))
+        (map 'nil #'bt:destroy-thread threads)))))
