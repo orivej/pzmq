@@ -7,7 +7,7 @@
 (in-suite :pzmq)
 
 (test supported-version
-  (let+ (((major minor nil) (pzmq:version)))
+  (let+ (((major minor &ign) (pzmq:version)))
     (is (and (>= major 3) (>= minor 2)))))
 
 (test request-response
