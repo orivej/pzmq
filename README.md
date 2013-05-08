@@ -32,4 +32,4 @@ Automatic tests have not been written.
 
 ## References
 
-For ZeroMQ 2, see [LISP-ZMQ](http://wandrian.net/lisp-zmq.html) by Nicolas Martyanoff.  I might have ported his version, were I more interested in comparing ØMQ 2 with ØMQ 3 and less interested in adapting ØMQ 3 to Lisp on my own.
+For ZeroMQ 2, see [LISP-ZMQ](http://wandrian.net/lisp-zmq.html) by Nicolas Martyanoff.  I might have ported his version were I more interested in comparing ØMQ 2 with ØMQ 3 and less interested in adapting ØMQ 3 to Lisp on my own.
