@@ -4,7 +4,7 @@
   :description "ZeroMQ 3.2+ bindings."
   :encoding :utf-8
   :author "Orivej Desh <orivej@gmx.fr>"
-  :licence "MIT"
+  :licence "Unlicense" ; http://unlicense.org/UNLICENSE
   :depends-on (cffi)
   :serial t
   :components ((:file "package")
