@@ -68,19 +68,24 @@ Report ØMQ library version."
         'libzmq-error
         (intern (symbol-name error-keyword) #.*package*))))
 
-(defmacro with-c-error-check (kind &body body)
+(defmacro with-c-error-check ((kind &optional allow-restart-p) &body body)
   (assert (member kind '(:int :pointer)))
-  (let ((ret (gensym (symbol-name '#:ret))))
-    `(progn
-       (setf errno 0)
-       (let ((,ret (progn ,@body)))
-         (if ,(case kind
-                (:int `(minusp (the fixnum ,ret)))
-                (:pointer `(null-pointer-p ,ret)))
-             (error (libzmq-error-condition errno) :errno errno)
-             ,ret)))))
+  (let ((ret (gensym (symbol-name '#:ret)))
+        (use-cerror-p (gensym (symbol-name '#:use-cerror-p)))
+        (err (gensym (symbol-name '#:err))))
+    `(let ((,use-cerror-p ,allow-restart-p))
+       (loop 
+         (setf errno 0) 
+         (let ((,ret (progn ,@body)))
+           (if ,(case kind
+                  (:int `(minusp (the fixnum ,ret)))
+                  (:pointer `(null-pointer-p ,ret)))
+               (let ((,err (make-condition (libzmq-error-condition errno) :errno errno))) 
+                 (if ,use-cerror-p (cerror "Retry ZMQ call" ,err) 
+                     (error ,err)))
+               (return ,ret)))))))
 
-(defmacro defcfun* (name return-type &body args)
+(defmacro defcfun* (name (return-type &optional allow-restart) &body args)
   "Simple wrapper for DEFCFUN and DEFUN around WITH-POSIX-ERROR-CHECK."
   (assert (stringp (car args))) ; required docstring
   (let ((internal (intern (concatenate 'string "%" (symbol-name name))))
@@ -91,7 +96,7 @@ Report ØMQ library version."
        (defcfun (,c-name ,internal) ,return-type
          ,@args)
        (defun ,name ,lambda-list ,docstring
-         (with-c-error-check ,return-type
+         (with-c-error-check (,return-type ,allow-restart)
            (,internal ,@lambda-list))))))
 
 ;;; Context
@@ -128,7 +133,7 @@ Get context options."
               (:io-threads +io-threads+)
               (:max-sockets +max-sockets+))))
 
-(defcfun* ctx-destroy :int
+(defcfun* ctx-destroy (:int)
   "Destroy a ØMQ context."
   (context :pointer))
 
@@ -156,7 +161,7 @@ Get context options."
        ((,s :pointer) (,event event) (,data event-data))
      ,@body))
 
-(defcfun* ctx-set-monitor :int
+(defcfun* ctx-set-monitor (:int)
   "Register a monitoring callback.
 @arg[monitor]{C callback function as defined with @fun{DEF-MONITOR-CALLBACK}}"
   (context :pointer)
@@ -168,7 +173,7 @@ Get context options."
   "Concealed structure, defined only to know its size."
   (_ :unsigned-char :count 32))
 
-(defcfun* msg-init :int
+(defcfun* msg-init (:int)
   "Initialise empty ØMQ message.
 
 Low-level API. Consider using @fun{WITH-MESSAGE}.
@@ -177,7 +182,7 @@ Low-level API. Consider using @fun{WITH-MESSAGE}.
 @see{MSG-INIT-DATA}"
   (msg :pointer))
 
-(defcfun* msg-init-size :int
+(defcfun* msg-init-size (:int)
   "Initialise ØMQ message of a specified size.
 @see{MSG-CLOSE}
 @see{MSG-INIT}
@@ -203,7 +208,7 @@ Low-level API. Consider using @fun{WITH-MESSAGE}.
 @see{MSG-INIT-SIZE}
 @see{MSG-INIT-DATA}"
   (let ((ptr (foreign-string-alloc data)))
-    (with-c-error-check :int
+    (with-c-error-check (:int)
       (%msg-init-data msg ptr (length data) 'free-fn nil))))
 
 (defbitfield send/recv-options
@@ -218,7 +223,7 @@ Low-level API. Consider using @fun{WITH-MESSAGE}.
 
 (defun msg-send (msg socket &key dontwait sndmore)
   "Send a message part on a socket."
-  (with-c-error-check :int
+  (with-c-error-check (:int t)
     (%msg-send msg socket (+ (if dontwait 1 0) (if sndmore 2 0)))))
 
 (defcfun ("zmq_msg_recv" %msg-recv) :int
@@ -229,10 +234,10 @@ Low-level API. Consider using @fun{WITH-MESSAGE}.
 
 (defun msg-recv (msg socket &key dontwait)
   "Receive a message part from a socket. "
-  (with-c-error-check :int
+  (with-c-error-check (:int t)
     (%msg-recv msg socket (if dontwait 1 0))))
 
-(defcfun* msg-close :int
+(defcfun* msg-close (:int)
   "Release ØMQ message.
 
 Low-level API. Consider using @fun{WITH-MESSAGE}."
@@ -265,21 +270,21 @@ Low-level API. Consider using @fun{WITH-MESSAGE}."
   "Get message property.  The only defined property is :more; equivalent to @fun{MSG-MORE}.
 @arg[property]{:more}"
   (assert (eq property :more))
-  (with-c-error-check :int
+  (with-c-error-check (:int)
     (%msg-get msg +more+)))
 
-(defcfun* msg-set :int
+(defcfun* msg-set (:int)
   "Set message property.  No setable properties defined yet."
   (msg :pointer)
   (property :int)
   (value :int))
 
-(defcfun* msg-copy :int
+(defcfun* msg-copy (:int)
   "Copy content of a message to another message."
   (dest :pointer)
   (src :pointer))
 
-(defcfun* msg-move :int
+(defcfun* msg-move (:int)
   "Move content of a message to another message."
   (dest :pointer)
   (src :pointer))
@@ -294,13 +299,13 @@ Low-level API. Consider using @fun{WITH-MESSAGE}."
   :pull :push
   :xpub :xsub)
 
-(defcfun* socket :pointer
+(defcfun* socket (:pointer)
   "Create ØMQ socket.
 @arg[type]{:pair | :pub | :sub | :req | :rep | :dealer | :router | :pull | :push | :xpub | :xsub}"
   (context :pointer)
   (type socket-type))
 
-(defcfun* close :int
+(defcfun* close (:int)
   "Close ØMQ socket."
   (socket :pointer))
 
@@ -356,7 +361,7 @@ Low-level API. Consider using @fun{WITH-MESSAGE}."
   (let ((id (foreign-enum-value 'socket-options option-name)))
     (with-foreign-object (len :uint)
       (flet ((call (val)
-               (with-c-error-check :int
+               (with-c-error-check (:int)
                  (%getsockopt socket id val len))))
         (case option-name
           ;; uint64
@@ -403,7 +408,7 @@ Low-level API. Consider using @fun{WITH-MESSAGE}."
              (let ((size (if (numberp size-or-type)
                              size-or-type
                              (foreign-type-size size-or-type))))
-               (with-c-error-check :int
+               (with-c-error-check (:int)
                  (%setsockopt socket id val size)))))
       (case option-name
         ;; uint64
@@ -432,7 +437,7 @@ Low-level API. Consider using @fun{WITH-MESSAGE}."
                     option-value)))
            (call val :int)))))))
 
-(defcfun* bind :int
+(defcfun* bind (:int)
   "Accept connections on a socket.
 
 Only one socket may be bound to a particular endpoint.
@@ -441,7 +446,7 @@ Bound socket may receive messages sent before it was bound.
   (socket :pointer)
   (endpoint :string))
 
-(defcfun* connect :int
+(defcfun* connect (:int)
   "Connect a socket.
 
 Many sockets may connect to the same endpoint.
@@ -465,13 +470,14 @@ Connected socket may not receive messages sent before it was bound.
 @arg[buf]{string, or foreign byte array}
 @arg[len]{ignored, or array size} "
   (let ((flags (+ (if dontwait 1 0) (if sndmore 2 0))))
-    (with-c-error-check :int
-      (if (stringp buf)
-          (with-foreign-string ((buf len) (if len (subseq buf 0 len) buf)
-                                :encoding encoding)
+    (if (stringp buf)
+        (with-foreign-string ((buf len) (if len (subseq buf 0 len) buf)
+                              :encoding encoding)
+          (with-c-error-check (:int t) 
             (locally (declare (type (integer 1 #.most-positive-fixnum)
                                     len))
-              (%send socket buf (1- len) flags)))
+              (%send socket buf (1- len) flags))))
+        (with-c-error-check (:int t) 
           (%send socket buf len flags)))))
 
 (defcfun ("zmq_recv" %recv) :int
@@ -496,7 +502,7 @@ Connected socket may not receive messages sent before it was bound.
   "Input/output multiplexing.
 @arg[items]{Poll items prepared with @fun{WITH-POLL-ITEMS}}
 @arg[timeout]{-1 : wait indefinitely; N : wait N milliseconds} "
-  (with-c-error-check :int
+  (with-c-error-check (:int t)
     (%poll (car items) (cdr items) timeout)))
 
 ;;; Device
@@ -506,7 +512,7 @@ Connected socket may not receive messages sent before it was bound.
   :forwarder
   :queue)
 
-(defcfun* device :int
+(defcfun* device (:int)
   "Start built-in ØMQ device in the calling thread. Never returns unless interrupted.
 @arg[device]{:streamer | :forwarder | :queue}
 @arg[frontend, backend]{socket}"
