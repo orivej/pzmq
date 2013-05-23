@@ -28,7 +28,28 @@ Report ØMQ library version."
 (defcfun ("zmq_errno" %errno) :int
   "Retrieve value of errno for the calling thread.")
 
+;; TODO below is not portable, it only works on Linux due to GLIBC
+;; hack to return thread local address from dlsym("errno"). Can return
+;; global address on other systems. Should either use implementation
+;; specific conditions like #+sbcl (sb-alien:get-errno), or use a
+;; library like IOLIB or OSICAT for this
+
 (defcvar errno :int)
+
+(defvar *restart-interrupted-calls* t
+  "When blocking ZMQ call returns with EINTR automatically retry it,
+instead of signaling a condition.
+
+Explanation: Every time garbage collection happens in implementation
+that use signals to stop threads (like SBCL), every ZMQ blocking
+ZMQ call, will error out with EINTR on every GC.
+
+When this variable is non-NIL, PZMQ will retry the call, as if
+you had selected CONTINUE restart.
+
+You should bind this to NIL, around places where you want to use
+signals to wake threads waiting on ZMQ calls, or handle retrying
+on EINTR logic yourself")
 
 (defun errno ()
   "Retrieve value of errno for the calling thread. @see{STRERROR}"
@@ -49,7 +70,7 @@ Report ØMQ library version."
   ((errno :initarg :errno :reader c-error-errno))
   (:report (lambda (c stream)
              (let* ((errno (c-error-errno c))
-                    (error-name (c-error-keyword errno) ))
+                    (error-name (c-error-keyword errno)))
                (format stream "C error ~:@(~a~): ~a."
                        (or error-name errno) (strerror errno))))))
 
@@ -80,9 +101,11 @@ Report ØMQ library version."
            (if ,(case kind
                   (:int `(minusp (the fixnum ,ret)))
                   (:pointer `(null-pointer-p ,ret)))
-               (let ((,err (make-condition (libzmq-error-condition errno) :errno errno))) 
-                 (if ,use-cerror-p (cerror "Retry ZMQ call" ,err) 
-                     (error ,err)))
+               (unless (and ,use-cerror-p *restart-interrupted-calls*
+                            (= #.(foreign-enum-value 'c-errors :eintr) errno))
+                 (let ((,err (make-condition (libzmq-error-condition errno) :errno errno))) 
+                   (if ,use-cerror-p (cerror "Retry ZMQ call" ,err) 
+                       (error ,err))))
                (return ,ret)))))))
 
 (defmacro defcfun* (name (return-type &optional allow-restart) &body args)
