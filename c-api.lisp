@@ -47,9 +47,19 @@ ZMQ call, will error out with EINTR on every GC.
 When this variable is non-NIL, PZMQ will retry the call, as if
 you had selected CONTINUE restart.
 
-You should bind this to NIL, around places where you want to use
-signals to wake threads waiting on ZMQ calls, or handle retrying
-on EINTR logic yourself")
+Note that EINTR will also be returned by any other interruptions
+such as attaching a debugger to a thread, or pressing Ctrl-C.
+
+If you would like to terminate your ZMQ call in these cases, then
+rebind *RESTART-INTERRUPTED-CALLS*, and have a HANDLER-BIND set it to
+NIL on these special cases.
+
+Then at a lower level, ignore EINTR errors. Its important to use
+HANDLER-BIND and not HANDLER-CASE, because we want the ZMQ function
+being interrupted to return EINTR, performing any necessary cleanups,
+using HANDLER-CASE or using non-local exit from HANDLER-BIND will
+accomplish its task, but without letting ZMQ call properly cleanup
+after itself.")
 
 (defun errno ()
   "Retrieve value of errno for the calling thread. @see{STRERROR}"
