@@ -53,6 +53,46 @@
         (sleep 1)
         (pzmq:send responder "World")))))
 
+;; Example on implementing Ctrl-C handler for SBCL, that will
+;; correctly exit ZMQ server loop (with everything nicely cleaned up,
+;; and no debugger invoked).
+;;
+;; Note that we have to use a signal handler, because SBCL has a bug
+;; that CONTINUE restart is not available for conditions raised from
+;; signal handlers
+;;
+;; If SBCL did not have this bug, portable way to do would have been
+;; (handler-bind ((sb-sys:interactive-interrupt
+;;                  (lambda () 
+;;                    (setq pzmq:*restart-interrupted-calls* nil)
+;;                    (continue))))
+;;   ... actual loop ...)
+
+#+sbcl
+(defun hwserver-with-ctrl-c (&optional (listen-address "tcp://*:5555"))
+  (pzmq:with-context nil                ; use *default-context*
+    (pzmq:with-socket responder :rep
+      (unwind-protect
+           ;; Bind it so setting to NIL does not change global value
+           (let ((pzmq:*restart-interrupted-calls* t)) 
+             (sb-sys:enable-interrupt sb-unix:sigint
+                                      (lambda (&rest args)
+                                        (declare (ignore args))
+                                        (setq pzmq:*restart-interrupted-calls* nil)))
+             (pzmq:bind responder listen-address) 
+             (handler-case 
+                 (loop
+                   (when (null pzmq:*restart-interrupted-calls*)
+                     (write-line "Exiting because of Ctrl-C")
+                     (return))
+                   (write-string "Waiting for a request... ")
+                   (write-line (pzmq:recv-string responder))
+                   (sleep 1)
+                   (pzmq:send responder "World"))
+               (pzmq:eintr ()))
+             (sb-sys:enable-interrupt sb-unix:sigint #'sb-unix::sigint-handler)
+             (values))))))
+
 
 ;;; Educational subscriber and publisher for the guide
 ;;; NOTE: these wuclient and wuserver don't work together as concurrent threads
