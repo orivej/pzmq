@@ -342,13 +342,6 @@ Low-level API. Consider using @fun{WITH-MESSAGE}."
   "Close ØMQ socket."
   (socket :pointer))
 
-(defcfun ("zmq_getsockopt" %getsockopt) :int
-  "Get ØMQ socket options."
-  (socket :pointer)
-  (option-name :int)
-  (option-value :pointer)
-  (len :pointer))
-
 (defcenum socket-options
   (:affinity 4)
   (:identity 5)
@@ -387,88 +380,91 @@ Low-level API. Consider using @fun{WITH-MESSAGE}."
   :pollout
   :pollerr)
 
+(defcfun ("zmq_getsockopt" %getsockopt) :int
+  "Get ØMQ socket options."
+  (socket :pointer)
+  (option-name socket-options)
+  (option-value :pointer)
+  (len :pointer))
+
 (defun getsockopt (socket option-name)
   "Get ØMQ socket options.
 @arg[option-name]{keyword}
 @return{integer, or string for :identity and :last-endpoint}"
-  (let ((id (foreign-enum-value 'socket-options option-name)))
-    (with-foreign-object (len :uint)
-      (flet ((call (val)
-               (with-c-error-check (:int)
-                 (%getsockopt socket id val len))))
-        (case option-name
-          ;; uint64
-          (:affinity
-           (with-foreign-object (val :uint64)
-             (setf (mem-ref len :uint) (foreign-type-size :uint64))
-             (call val)
-             (mem-ref val :uint64)))
-          ;; int64
-          (:maxmsgsize
-           (with-foreign-object (val :int64)
-             (setf (mem-ref len :uint) (foreign-type-size :int64))
-             (call val)
-             (mem-ref val :int64)))
-          ;; binary 1..255
-          ((:identity :last-endpoint)
-           (with-foreign-pointer-as-string ((buf size) 256)
-             (setf (mem-ref len :uint) (1- size))
-             (call buf)))
-          ;; int
-          (t
-           (with-foreign-object (val :int)
-             (setf (mem-ref len :uint) (foreign-type-size :int))
-             (call val)
-             (let ((ret (mem-ref val :int)))
-               (case option-name
-                 (:type (foreign-enum-value 'socket-type ret))
-                 ((:rcvmore :ipv4only :delay-attach-on-connect)
-                  (plusp ret))
-                 (:events (foreign-bitfield-symbols 'events ret))
-                 (t ret))))))))))
+  (with-foreign-object (len :uint)
+    (flet ((call (val)
+             (with-c-error-check (:int)
+               (%getsockopt socket option-name val len))))
+      (case option-name
+        ;; uint64
+        (:affinity
+         (with-foreign-object (val :uint64)
+           (setf (mem-ref len :uint) (foreign-type-size :uint64))
+           (call val)
+           (mem-ref val :uint64)))
+        ;; int64
+        (:maxmsgsize
+         (with-foreign-object (val :int64)
+           (setf (mem-ref len :uint) (foreign-type-size :int64))
+           (call val)
+           (mem-ref val :int64)))
+        ;; binary 1..255
+        ((:identity :last-endpoint)
+         (with-foreign-pointer-as-string ((buf size) 256)
+           (setf (mem-ref len :uint) (1- size))
+           (call buf)))
+        ;; int
+        (t
+         (with-foreign-object (val :int)
+           (setf (mem-ref len :uint) (foreign-type-size :int))
+           (call val)
+           (let ((ret (mem-ref val :int)))
+             (case option-name
+               (:type (convert-from-foreign ret 'socket-type))
+               ((:rcvmore :ipv4only :delay-attach-on-connect)
+                (plusp ret))
+               (:events (convert-from-foreign ret 'events))
+               (t ret)))))))))
 
 (defcfun ("zmq_setsockopt" %setsockopt) :int
   "Set ØMQ socket options."
   (socket :pointer)
-  (option-name :int)
+  (option-name socket-options)
   (option-value :pointer)
   (option-len :uint))
 
 (defun setsockopt (socket option-name option-value)
   "Set ØMQ socket options."
-  (let ((id (foreign-enum-value 'socket-options option-name)))
-    (flet ((call (val size-or-type)
-             (let ((size (if (numberp size-or-type)
-                             size-or-type
-                             (foreign-type-size size-or-type))))
-               (with-c-error-check (:int)
-                 (%setsockopt socket id val size)))))
-      (case option-name
-        ;; uint64
-        (:affinity
-         (with-foreign-object (val :uint64)
-           (setf (mem-ref val :uint64) option-value)
-           (call val :uint64)))
-        ;; int64
-        (:maxmsgsize
-         (with-foreign-object (val :int64)
-           (setf (mem-ref val :int64) option-value)
-           (call val :int64)))
-        ;; binary 1..255
-        ((:subscribe :unsubscribe :identity :tcp-accept-filter)
-         (if option-value
-             (with-foreign-string ((buf size) option-value)
-               (call buf (1- size)))
-             (call (null-pointer) 0)))
-        (t
-         (with-foreign-object (val :int)
-           (setf (mem-ref val :int)
-                 (case option-name
-                   ((:ipv4only :delay-attach-on-connect :router-behavior)
-                    (if option-value 1 0))
-                   (t
-                    option-value)))
-           (call val :int)))))))
+  (flet ((call (val size)
+           (declare (type integer size))
+           (with-c-error-check (:int)
+             (%setsockopt socket option-name val size))))
+    (case option-name
+      ;; uint64
+      (:affinity
+       (with-foreign-object (val :uint64)
+         (setf (mem-ref val :uint64) option-value)
+         (call val (foreign-type-size :uint64))))
+      ;; int64
+      (:maxmsgsize
+       (with-foreign-object (val :int64)
+         (setf (mem-ref val :int64) option-value)
+         (call val (foreign-type-size :int64))))
+      ;; binary 1..255
+      ((:subscribe :unsubscribe :identity :tcp-accept-filter)
+       (if option-value
+           (with-foreign-string ((buf size) option-value)
+             (call buf (1- size)))
+           (call (null-pointer) 0)))
+      (t
+       (with-foreign-object (val :int)
+         (setf (mem-ref val :int)
+               (case option-name
+                 ((:ipv4only :delay-attach-on-connect :router-behavior)
+                  (if option-value 1 0))
+                 (t
+                  option-value)))
+         (call val (foreign-type-size :int)))))))
 
 (defcfun* bind (:int)
   "Accept connections on a socket.
