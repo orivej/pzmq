@@ -11,12 +11,11 @@ This release is **experimental** until all API is manually or automatically test
 * Complete ZeroMQ 3.2/3.3 API is covered, at least at low level.
 * Everything is documented, at least preliminarily.
 * Has some pleasant syntax sugar, aims for more.
+* Handles interrupts in blocking calls, thanks to [Max Mikhanosha](https://github.com/7max): `msg-send` and `msg-recv` interrupted by GC are automatically restarted (option `*restart-interrupted-calls*`).
 
 ## Deficiencies
 
 Everything not in `examples.lisp` has not been tested.
-
-In a multithreaded application, sending or receiving messages may be interrupted with a UNIX signal by another active thread, such as another active socket (a constantly firing ZMQ_PUB) or a statistical profiler.  This signals `(LIBZMQ-ERROR :ERRNO 4)`.  I don't yet know why this happends and how to properly handle it.
 
 Only those conveniences useful in `examples.lisp` have been designed and implemented.
 
