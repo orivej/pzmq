@@ -28,7 +28,38 @@ Report ØMQ library version."
 (defcfun ("zmq_errno" %errno) :int
   "Retrieve value of errno for the calling thread.")
 
+;; TODO below is not portable, it only works on Linux due to GLIBC
+;; hack to return thread local address from dlsym("errno"). Can return
+;; global address on other systems. Should either use implementation
+;; specific conditions like #+sbcl (sb-alien:get-errno), or use a
+;; library like IOLIB or OSICAT for this
+
 (defcvar errno :int)
+
+(defvar *restart-interrupted-calls* t
+  "When blocking ZMQ call returns with EINTR automatically retry it,
+instead of signaling a condition.
+
+Explanation: Every time garbage collection happens in implementation
+that use signals to stop threads (like SBCL), every ZMQ blocking
+ZMQ call, will error out with EINTR on every GC.
+
+When this variable is non-NIL, PZMQ will retry the call, as if
+you had selected CONTINUE restart.
+
+Note that EINTR will also be returned by any other interruptions
+such as attaching a debugger to a thread, or pressing Ctrl-C.
+
+If you would like to terminate your ZMQ call in these cases, then
+rebind *RESTART-INTERRUPTED-CALLS*, and have a HANDLER-BIND set it to
+NIL on these special cases.
+
+Then at a lower level, ignore EINTR errors. Its important to use
+HANDLER-BIND and not HANDLER-CASE, because we want the ZMQ function
+being interrupted to return EINTR, performing any necessary cleanups,
+using HANDLER-CASE or using non-local exit from HANDLER-BIND will
+accomplish its task, but without letting ZMQ call properly cleanup
+after itself.")
 
 (defun errno ()
   "Retrieve value of errno for the calling thread. @see{STRERROR}"
@@ -49,7 +80,7 @@ Report ØMQ library version."
   ((errno :initarg :errno :reader c-error-errno))
   (:report (lambda (c stream)
              (let* ((errno (c-error-errno c))
-                    (error-name (c-error-keyword errno) ))
+                    (error-name (c-error-keyword errno)))
                (format stream "C error ~:@(~a~): ~a."
                        (or error-name errno) (strerror errno))))))
 
@@ -68,19 +99,26 @@ Report ØMQ library version."
         'libzmq-error
         (intern (symbol-name error-keyword) #.*package*))))
 
-(defmacro with-c-error-check (kind &body body)
+(defmacro with-c-error-check ((kind &optional allow-restart-p) &body body)
   (assert (member kind '(:int :pointer)))
-  (let ((ret (gensym (symbol-name '#:ret))))
-    `(progn
-       (setf errno 0)
-       (let ((,ret (progn ,@body)))
-         (if ,(case kind
-                (:int `(minusp (the fixnum ,ret)))
-                (:pointer `(null-pointer-p ,ret)))
-             (error (libzmq-error-condition errno) :errno errno)
-             ,ret)))))
+  (let ((ret (gensym (symbol-name '#:ret)))
+        (use-cerror-p (gensym (symbol-name '#:use-cerror-p)))
+        (err (gensym (symbol-name '#:err))))
+    `(let ((,use-cerror-p ,allow-restart-p))
+       (loop 
+         (setf errno 0) 
+         (let ((,ret (progn ,@body)))
+           (if ,(case kind
+                  (:int `(minusp (the fixnum ,ret)))
+                  (:pointer `(null-pointer-p ,ret)))
+               (unless (and ,use-cerror-p *restart-interrupted-calls*
+                            (= #.(foreign-enum-value 'c-errors :eintr) errno))
+                 (let ((,err (make-condition (libzmq-error-condition errno) :errno errno))) 
+                   (if ,use-cerror-p (cerror "Retry ZMQ call" ,err) 
+                       (error ,err))))
+               (return ,ret)))))))
 
-(defmacro defcfun* (name return-type &body args)
+(defmacro defcfun* (name (return-type &optional allow-restart) &body args)
   "Simple wrapper for DEFCFUN and DEFUN around WITH-POSIX-ERROR-CHECK."
   (assert (stringp (car args))) ; required docstring
   (let ((internal (intern (concatenate 'string "%" (symbol-name name))))
@@ -91,7 +129,7 @@ Report ØMQ library version."
        (defcfun (,c-name ,internal) ,return-type
          ,@args)
        (defun ,name ,lambda-list ,docstring
-         (with-c-error-check ,return-type
+         (with-c-error-check (,return-type ,allow-restart)
            (,internal ,@lambda-list))))))
 
 ;;; Context
@@ -128,7 +166,7 @@ Get context options."
               (:io-threads +io-threads+)
               (:max-sockets +max-sockets+))))
 
-(defcfun* ctx-destroy :int
+(defcfun* ctx-destroy (:int)
   "Destroy a ØMQ context."
   (context :pointer))
 
@@ -156,7 +194,7 @@ Get context options."
        ((,s :pointer) (,event event) (,data event-data))
      ,@body))
 
-(defcfun* ctx-set-monitor :int
+(defcfun* ctx-set-monitor (:int)
   "Register a monitoring callback.
 @arg[monitor]{C callback function as defined with @fun{DEF-MONITOR-CALLBACK}}"
   (context :pointer)
@@ -168,7 +206,7 @@ Get context options."
   "Concealed structure, defined only to know its size."
   (_ :unsigned-char :count 32))
 
-(defcfun* msg-init :int
+(defcfun* msg-init (:int)
   "Initialise empty ØMQ message.
 
 Low-level API. Consider using @fun{WITH-MESSAGE}.
@@ -177,7 +215,7 @@ Low-level API. Consider using @fun{WITH-MESSAGE}.
 @see{MSG-INIT-DATA}"
   (msg :pointer))
 
-(defcfun* msg-init-size :int
+(defcfun* msg-init-size (:int)
   "Initialise ØMQ message of a specified size.
 @see{MSG-CLOSE}
 @see{MSG-INIT}
@@ -203,7 +241,7 @@ Low-level API. Consider using @fun{WITH-MESSAGE}.
 @see{MSG-INIT-SIZE}
 @see{MSG-INIT-DATA}"
   (let ((ptr (foreign-string-alloc data)))
-    (with-c-error-check :int
+    (with-c-error-check (:int)
       (%msg-init-data msg ptr (length data) 'free-fn nil))))
 
 (defbitfield send/recv-options
@@ -218,7 +256,7 @@ Low-level API. Consider using @fun{WITH-MESSAGE}.
 
 (defun msg-send (msg socket &key dontwait sndmore)
   "Send a message part on a socket."
-  (with-c-error-check :int
+  (with-c-error-check (:int t)
     (%msg-send msg socket (+ (if dontwait 1 0) (if sndmore 2 0)))))
 
 (defcfun ("zmq_msg_recv" %msg-recv) :int
@@ -229,10 +267,10 @@ Low-level API. Consider using @fun{WITH-MESSAGE}.
 
 (defun msg-recv (msg socket &key dontwait)
   "Receive a message part from a socket. "
-  (with-c-error-check :int
+  (with-c-error-check (:int t)
     (%msg-recv msg socket (if dontwait 1 0))))
 
-(defcfun* msg-close :int
+(defcfun* msg-close (:int)
   "Release ØMQ message.
 
 Low-level API. Consider using @fun{WITH-MESSAGE}."
@@ -265,21 +303,21 @@ Low-level API. Consider using @fun{WITH-MESSAGE}."
   "Get message property.  The only defined property is :more; equivalent to @fun{MSG-MORE}.
 @arg[property]{:more}"
   (assert (eq property :more))
-  (with-c-error-check :int
+  (with-c-error-check (:int)
     (%msg-get msg +more+)))
 
-(defcfun* msg-set :int
+(defcfun* msg-set (:int)
   "Set message property.  No setable properties defined yet."
   (msg :pointer)
   (property :int)
   (value :int))
 
-(defcfun* msg-copy :int
+(defcfun* msg-copy (:int)
   "Copy content of a message to another message."
   (dest :pointer)
   (src :pointer))
 
-(defcfun* msg-move :int
+(defcfun* msg-move (:int)
   "Move content of a message to another message."
   (dest :pointer)
   (src :pointer))
@@ -294,22 +332,15 @@ Low-level API. Consider using @fun{WITH-MESSAGE}."
   :pull :push
   :xpub :xsub)
 
-(defcfun* socket :pointer
+(defcfun* socket (:pointer)
   "Create ØMQ socket.
 @arg[type]{:pair | :pub | :sub | :req | :rep | :dealer | :router | :pull | :push | :xpub | :xsub}"
   (context :pointer)
   (type socket-type))
 
-(defcfun* close :int
+(defcfun* close (:int)
   "Close ØMQ socket."
   (socket :pointer))
-
-(defcfun ("zmq_getsockopt" %getsockopt) :int
-  "Get ØMQ socket options."
-  (socket :pointer)
-  (option-name :int)
-  (option-value :pointer)
-  (len :pointer))
 
 (defcenum socket-options
   (:affinity 4)
@@ -349,90 +380,93 @@ Low-level API. Consider using @fun{WITH-MESSAGE}."
   :pollout
   :pollerr)
 
+(defcfun ("zmq_getsockopt" %getsockopt) :int
+  "Get ØMQ socket options."
+  (socket :pointer)
+  (option-name socket-options)
+  (option-value :pointer)
+  (len :pointer))
+
 (defun getsockopt (socket option-name)
   "Get ØMQ socket options.
 @arg[option-name]{keyword}
 @return{integer, or string for :identity and :last-endpoint}"
-  (let ((id (foreign-enum-value 'socket-options option-name)))
-    (with-foreign-object (len :uint)
-      (flet ((call (val)
-               (with-c-error-check :int
-                 (%getsockopt socket id val len))))
-        (case option-name
-          ;; uint64
-          (:affinity
-           (with-foreign-object (val :uint64)
-             (setf (mem-ref len :uint) (foreign-type-size :uint64))
-             (call val)
-             (mem-ref val :uint64)))
-          ;; int64
-          (:maxmsgsize
-           (with-foreign-object (val :int64)
-             (setf (mem-ref len :uint) (foreign-type-size :int64))
-             (call val)
-             (mem-ref val :int64)))
-          ;; binary 1..255
-          ((:identity :last-endpoint)
-           (with-foreign-pointer-as-string ((buf size) 256)
-             (setf (mem-ref len :uint) (1- size))
-             (call buf)))
-          ;; int
-          (t
-           (with-foreign-object (val :int)
-             (setf (mem-ref len :uint) (foreign-type-size :int))
-             (call val)
-             (let ((ret (mem-ref val :int)))
-               (case option-name
-                 (:type (foreign-enum-value 'socket-type ret))
-                 ((:rcvmore :ipv4only :delay-attach-on-connect)
-                  (plusp ret))
-                 (:events (foreign-bitfield-symbols 'events ret))
-                 (t ret))))))))))
+  (with-foreign-object (len :uint)
+    (flet ((call (val)
+             (with-c-error-check (:int)
+               (%getsockopt socket option-name val len))))
+      (case option-name
+        ;; uint64
+        (:affinity
+         (with-foreign-object (val :uint64)
+           (setf (mem-ref len :uint) (foreign-type-size :uint64))
+           (call val)
+           (mem-ref val :uint64)))
+        ;; int64
+        (:maxmsgsize
+         (with-foreign-object (val :int64)
+           (setf (mem-ref len :uint) (foreign-type-size :int64))
+           (call val)
+           (mem-ref val :int64)))
+        ;; binary 1..255
+        ((:identity :last-endpoint)
+         (with-foreign-pointer-as-string ((buf size) 256)
+           (setf (mem-ref len :uint) (1- size))
+           (call buf)))
+        ;; int
+        (t
+         (with-foreign-object (val :int)
+           (setf (mem-ref len :uint) (foreign-type-size :int))
+           (call val)
+           (let ((ret (mem-ref val :int)))
+             (case option-name
+               (:type (convert-from-foreign ret 'socket-type))
+               ((:rcvmore :ipv4only :delay-attach-on-connect)
+                (plusp ret))
+               (:events (convert-from-foreign ret 'events))
+               (t ret)))))))))
 
 (defcfun ("zmq_setsockopt" %setsockopt) :int
   "Set ØMQ socket options."
   (socket :pointer)
-  (option-name :int)
+  (option-name socket-options)
   (option-value :pointer)
   (option-len :uint))
 
 (defun setsockopt (socket option-name option-value)
   "Set ØMQ socket options."
-  (let ((id (foreign-enum-value 'socket-options option-name)))
-    (flet ((call (val size-or-type)
-             (let ((size (if (numberp size-or-type)
-                             size-or-type
-                             (foreign-type-size size-or-type))))
-               (with-c-error-check :int
-                 (%setsockopt socket id val size)))))
-      (case option-name
-        ;; uint64
-        (:affinity
-         (with-foreign-object (val :uint64)
-           (setf (mem-ref val :uint64) option-value)
-           (call val :uint64)))
-        ;; int64
-        (:maxmsgsize
-         (with-foreign-object (val :int64)
-           (setf (mem-ref val :int64) option-value)
-           (call val :int64)))
-        ;; binary 1..255
-        ((:subscribe :unsubscribe :identity :tcp-accept-filter)
-         (if option-value
-             (with-foreign-string ((buf size) option-value)
-               (call buf (1- size)))
-             (call (null-pointer) 0)))
-        (t
-         (with-foreign-object (val :int)
-           (setf (mem-ref val :int)
-                 (case option-name
-                   ((:ipv4only :delay-attach-on-connect :router-behavior)
-                    (if option-value 1 0))
-                   (t
-                    option-value)))
-           (call val :int)))))))
+  (flet ((call (val size)
+           (declare (type integer size))
+           (with-c-error-check (:int)
+             (%setsockopt socket option-name val size))))
+    (case option-name
+      ;; uint64
+      (:affinity
+       (with-foreign-object (val :uint64)
+         (setf (mem-ref val :uint64) option-value)
+         (call val (foreign-type-size :uint64))))
+      ;; int64
+      (:maxmsgsize
+       (with-foreign-object (val :int64)
+         (setf (mem-ref val :int64) option-value)
+         (call val (foreign-type-size :int64))))
+      ;; binary 1..255
+      ((:subscribe :unsubscribe :identity :tcp-accept-filter)
+       (if option-value
+           (with-foreign-string ((buf size) option-value)
+             (call buf (1- size)))
+           (call (null-pointer) 0)))
+      (t
+       (with-foreign-object (val :int)
+         (setf (mem-ref val :int)
+               (case option-name
+                 ((:ipv4only :delay-attach-on-connect :router-behavior)
+                  (if option-value 1 0))
+                 (t
+                  option-value)))
+         (call val (foreign-type-size :int)))))))
 
-(defcfun* bind :int
+(defcfun* bind (:int)
   "Accept connections on a socket.
 
 Only one socket may be bound to a particular endpoint.
@@ -441,7 +475,7 @@ Bound socket may receive messages sent before it was bound.
   (socket :pointer)
   (endpoint :string))
 
-(defcfun* connect :int
+(defcfun* connect (:int)
   "Connect a socket.
 
 Many sockets may connect to the same endpoint.
@@ -465,13 +499,14 @@ Connected socket may not receive messages sent before it was bound.
 @arg[buf]{string, or foreign byte array}
 @arg[len]{ignored, or array size} "
   (let ((flags (+ (if dontwait 1 0) (if sndmore 2 0))))
-    (with-c-error-check :int
-      (if (stringp buf)
-          (with-foreign-string ((buf len) (if len (subseq buf 0 len) buf)
-                                :encoding encoding)
+    (if (stringp buf)
+        (with-foreign-string ((buf len) (if len (subseq buf 0 len) buf)
+                              :encoding encoding)
+          (with-c-error-check (:int t) 
             (locally (declare (type (integer 1 #.most-positive-fixnum)
                                     len))
-              (%send socket buf (1- len) flags)))
+              (%send socket buf (1- len) flags))))
+        (with-c-error-check (:int t) 
           (%send socket buf len flags)))))
 
 (defcfun ("zmq_recv" %recv) :int
@@ -496,7 +531,7 @@ Connected socket may not receive messages sent before it was bound.
   "Input/output multiplexing.
 @arg[items]{Poll items prepared with @fun{WITH-POLL-ITEMS}}
 @arg[timeout]{-1 : wait indefinitely; N : wait N milliseconds} "
-  (with-c-error-check :int
+  (with-c-error-check (:int t)
     (%poll (car items) (cdr items) timeout)))
 
 ;;; Device
@@ -506,7 +541,7 @@ Connected socket may not receive messages sent before it was bound.
   :forwarder
   :queue)
 
-(defcfun* device :int
+(defcfun* device (:int)
   "Start built-in ØMQ device in the calling thread. Never returns unless interrupted.
 @arg[device]{:streamer | :forwarder | :queue}
 @arg[frontend, backend]{socket}"

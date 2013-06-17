@@ -96,6 +96,7 @@ Consult @a[http://api.zeromq.org/3-3:zmq]{official C API reference} first.
    ;; Lisp API:
    #:with-message
    #:*default-context*
+   #:*restart-interrupted-calls*
    #:recv-string
    #:with-context
    #:with-socket
