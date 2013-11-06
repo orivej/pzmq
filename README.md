@@ -1,6 +1,6 @@
 # ZeroMQ 3.2+ bindings
 
-API reference resides at http://orivej.github.com/pzmq/index.html
+API reference resides at http://orivej.github.io/pzmq/doc/index.html
 
 See examples in `examples.lisp`.
 
