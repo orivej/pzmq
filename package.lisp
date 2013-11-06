@@ -18,8 +18,6 @@ Consult @a[http://api.zeromq.org/3-3:zmq]{official C API reference} first.
 @begin[Middle-level API]{section}
 @aboutfun{with-context}
 @aboutfun{with-message}
-@aboutfun{ctx-set-monitor}
-@aboutfun{def-monitor-callback}
 @end{section}
 
 @begin[Low-level API]{section}
@@ -64,8 +62,6 @@ Consult @a[http://api.zeromq.org/3-3:zmq]{official C API reference} first.
    #:ctx-set
    #:ctx-get
    #:ctx-destroy
-   #:def-monitor-callback
-   #:ctx-set-monitor
    ;; - message
    #:%msg
    #:msg-init

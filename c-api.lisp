@@ -171,7 +171,7 @@ Get context options."
   (context :pointer))
 
 (defbitfield event
-  "Callback events."
+  "Socket events (for use with socket-monitor)."
   :connected
   :connect-delayed
   :connect-retried
@@ -182,23 +182,6 @@ Get context options."
   :closed
   :close-failed
   :disconnected)
-
-(defcstruct event-data
-  "Callback event data."
-  (addr :string)
-  (arg :int))
-
-(defmacro def-monitor-callback (name (s event data) &body body)
-  "Define a callback to pass as MONITOR to @fun{CTX-SET-MONITOR}."
-  `(defcallback ,name :void
-       ((,s :pointer) (,event event) (,data event-data))
-     ,@body))
-
-(defcfun* ctx-set-monitor (:int)
-  "Register a monitoring callback.
-@arg[monitor]{C callback function as defined with @fun{DEF-MONITOR-CALLBACK}}"
-  (context :pointer)
-  (monitor :pointer))
 
 ;;; Message
 
