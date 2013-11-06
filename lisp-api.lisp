@@ -91,9 +91,9 @@ this block.
         finally (return form)))
 
 (defmacro with-poll-items (name (&rest items) &body body)
-  "Prepare POLLITEM array in NAME.  Only ZeroMQ sockets are supported.
+  "Prepare POLLITEM array in NAME.
 
-Without parrenthes, an item indicates subscription to all events.
+Without parentheses, an item indicates subscription to both :pollin and :pollout.
 @arg[items]{(item ...)}
 @arg[item]{name | (name [:pollin] [:pollout])}"
   (let ((nitems (length items)))

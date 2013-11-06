@@ -510,9 +510,10 @@ Connected socket may not receive messages sent before it was bound.
   (timeout :long))
 
 (defun poll (items &optional (timeout -1))
-  "Input/output multiplexing.
+  "Input/output multiplexing on ZeroMQ sockets.
 @arg[items]{Poll items prepared with @fun{WITH-POLL-ITEMS}}
-@arg[timeout]{-1 : wait indefinitely; N : wait N milliseconds} "
+@arg[timeout]{-1 : wait indefinitely; N : wait N milliseconds}
+@return{The number of ready items.}"
   (with-c-error-check (:int t)
     (%poll (car items) (cdr items) timeout)))
 
