@@ -54,7 +54,7 @@ If you would like to terminate your ZMQ call in these cases, then
 rebind *RESTART-INTERRUPTED-CALLS*, and have a HANDLER-BIND set it to
 NIL on these special cases.
 
-Then at a lower level, ignore EINTR errors. Its important to use
+Then at a lower level, ignore EINTR errors. It is important to use
 HANDLER-BIND and not HANDLER-CASE, because we want the ZMQ function
 being interrupted to return EINTR, performing any necessary cleanups,
 using HANDLER-CASE or using non-local exit from HANDLER-BIND will
@@ -102,21 +102,20 @@ after itself.")
 (defmacro with-c-error-check ((kind &optional allow-restart-p) &body body)
   (assert (member kind '(:int :pointer)))
   (let ((ret (gensym (symbol-name '#:ret)))
-        (use-cerror-p (gensym (symbol-name '#:use-cerror-p)))
         (err (gensym (symbol-name '#:err))))
-    `(let ((,use-cerror-p ,allow-restart-p))
-       (loop 
-         (setf errno 0) 
-         (let ((,ret (progn ,@body)))
-           (if ,(case kind
-                  (:int `(minusp (the fixnum ,ret)))
-                  (:pointer `(null-pointer-p ,ret)))
-               (unless (and ,use-cerror-p *restart-interrupted-calls*
-                            (= #.(foreign-enum-value 'c-errors :eintr) errno))
-                 (let ((,err (make-condition (libzmq-error-condition errno) :errno errno))) 
-                   (if ,use-cerror-p (cerror "Retry ZMQ call" ,err) 
-                       (error ,err))))
-               (return ,ret)))))))
+    `(loop
+       (setf errno 0)
+       (let ((,ret (progn ,@body)))
+         (if ,(case kind
+                (:int `(minusp (the fixnum ,ret)))
+                (:pointer `(null-pointer-p ,ret)))
+             (unless (and ,allow-restart-p *restart-interrupted-calls*
+                          (= #.(foreign-enum-value 'c-errors :eintr) errno))
+               (let ((,err (make-condition (libzmq-error-condition errno) :errno errno)))
+                 ,(if allow-restart-p
+                      `(cerror "Retry ZMQ call" ,err)
+                      `(error ,err))))
+             (return ,ret))))))
 
 (defmacro defcfun* (name (return-type &optional allow-restart) &body args)
   "Simple wrapper for DEFCFUN and DEFUN around WITH-POSIX-ERROR-CHECK."
@@ -485,11 +484,11 @@ Connected socket may not receive messages sent before it was bound.
     (if (stringp buf)
         (with-foreign-string ((buf len) (if len (subseq buf 0 len) buf)
                               :encoding encoding)
-          (with-c-error-check (:int t) 
+          (with-c-error-check (:int t)
             (locally (declare (type (integer 1 #.most-positive-fixnum)
                                     len))
               (%send socket buf (1- len) flags))))
-        (with-c-error-check (:int t) 
+        (with-c-error-check (:int t)
           (%send socket buf len flags)))))
 
 (defcfun ("zmq_recv" %recv) :int
