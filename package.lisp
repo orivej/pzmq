@@ -1,7 +1,7 @@
 (defpackage #:pzmq
   (:documentation "ZeroMQ 3.2+ bindings.
 
-Consult @a[http://api.zeromq.org/3-3:zmq]{official C API reference} first.
+Consult @a[http://api.zeromq.org/4-0:zmq]{official C API reference} first.
 
 @begin[Top-level API]{section}
 @aboutfun{with-socket}
