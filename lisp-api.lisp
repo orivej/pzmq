@@ -23,9 +23,12 @@
 
 Use NIL for @em{anonymous context}, stored in @variable{*DEFAULT-CONTEXT*}.
 
-Omit @fun{WITH-CONTEXT} altogether, and @fun{WITH-SOCKET} will establish it by itself.
+Omit @fun{WITH-CONTEXT} altogether, and @fun{WITH-SOCKET} will establish it by
+itself.
 
-Note: unwind-protected @fun{CTX-DESTROY} will not return until all governed sockets have sent all queued messages, unless they limited their wait time with :LINGER socket parameter.
+Note: unwind-protected @fun{CTX-DESTROY} will not return until all governed
+sockets have sent all queued messages, unless they limited their wait time
+with :LINGER socket parameter.
 @arg[name-and-options]{name | (name options)}
 @arg[name]{name | NIL}
 @arg[options]{:io-threads INT :max-sockets INT; as per @fun{CTX-SET}}"
@@ -44,13 +47,18 @@ Note: unwind-protected @fun{CTX-DESTROY} will not return until all governed sock
          (ctx-destroy ,(or name '*default-context*))))))
 
 (defmacro with-socket (name-and-context type-and-options &body body)
-  "Initialize and close ZMQ socket around body.  Type is one of the types accepted by @fun{SOCKET}.  Options are passed to @fun{SETSOCKOPT} one by one.
+  "Initialize and close ZMQ socket around body.  Type is one of the types accepted
+by @fun{SOCKET}.  Options are passed to @fun{SETSOCKOPT} one by one.
 
-When TYPE is :SUB, and :SUBSCRIBE is not given in OPTIONS, imply subscribe to all.  If this is undesirable, provide :SUBSCRIBE NIL.
+When TYPE is :SUB, and :SUBSCRIBE is not given in OPTIONS, imply subscribe to all.
+If this is undesirable, provide :SUBSCRIBE NIL.
 
-When context is not specified, it either comes from surrounding @fun{WITH-CONTEXT} or @fun{WITH-SOCKET} in @variable{*DEFAULT-CONTEXT*}, or is established by this @fun{WITH-SOCKET} and stored in @variable{*DEFAULT-CONTEXT*} for the timespan of this block.
+When context is not specified, it either comes from surrounding @fun{WITH-CONTEXT}
+or @fun{WITH-SOCKET} in @variable{*DEFAULT-CONTEXT*}, or is established by this
+@fun{WITH-SOCKET} and stored in @variable{*DEFAULT-CONTEXT*} for the timespan of
+this block.
 @arg[name-and-context]{name | (name context)}
-@arg[type-and-options]{type | (type :option1 value1 :option2 value2 ...)} "
+@arg[type-and-options]{type | (type :option1 value1 :option2 value2 ...)}"
   (let* ((context-p (listp name-and-context))
          (options-p (listp type-and-options))
          (name (if context-p (car name-and-context) name-and-context))
@@ -106,7 +114,8 @@ Without parrenthes, an item indicates subscription to all events.
          ,@body))))
 
 (defun revents (items subscript)
-  "Return a list of events - :pollin, :pollout or both - that happened to an indicated item, counting from 0.
+  "Return a list of events - :pollin, :pollout or both - that happened to an
+indicated item, counting from 0.
 @return{([:pollin] [:pollout])}"
   (assert (< -1 subscript (cdr items)))
   (let ((item-ptr (mem-aptr (car items) '(:struct pollitem) subscript)))
