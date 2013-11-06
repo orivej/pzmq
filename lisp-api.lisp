@@ -2,7 +2,7 @@
 
 (defmacro with-message (name &body body)
   "Initialize and free ZMQ message around body."
-  `(with-foreign-object (,name '%msg)
+  `(with-foreign-object (,name '(:struct %msg))
      (msg-init ,name)
      (unwind-protect (progn ,@body)
        (msg-close ,name))))
@@ -89,7 +89,7 @@ Without parrenthes, an item indicates subscription to all events.
 @arg[items]{(item ...)}
 @arg[item]{name | (name [:pollin] [:pollout])}"
   (let ((nitems (length items)))
-    `(with-foreign-object (,name 'pollitem ,nitems)
+    `(with-foreign-object (,name '(:struct pollitem) ,nitems)
        ,@(loop
            for item in items
            for offset from 0
@@ -98,8 +98,8 @@ Without parrenthes, an item indicates subscription to all events.
            do (setf %events (list :pollin :pollout))
            collect `(with-foreign-slots
                         ((socket events)
-                         (mem-aref ,name 'pollitem ,offset)
-                         pollitem)
+                         (mem-aptr ,name '(:struct pollitem) ,offset)
+                         (:struct pollitem))
                       (setf socket ,%socket
                             events ',%events)))
        (let ((,name (cons ,name ,nitems)))
@@ -109,5 +109,5 @@ Without parrenthes, an item indicates subscription to all events.
   "Return a list of events - :pollin, :pollout or both - that happened to an indicated item, counting from 0.
 @return{([:pollin] [:pollout])}"
   (assert (< -1 subscript (cdr items)))
-  (foreign-slot-value (mem-aref (car items) 'pollitem subscript)
-                      'pollitem 'revents))
+  (let ((item-ptr (mem-aptr (car items) '(:struct pollitem) subscript)))
+    (foreign-slot-value item-ptr '(:struct pollitem) 'revents)))
