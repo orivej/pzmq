@@ -2,7 +2,6 @@
   (:use #:cl #:split-sequence #:iterate #:local-time))
 
 (in-package #:pzmq-examples)
-
 
 ;;; Simple publisher and subscriber
 
@@ -19,8 +18,7 @@
     (pzmq:connect socket server-address)
     (loop for i from 1
           for reply = (pzmq:recv-string socket :encoding :ascii)
-          when (> i burst)
-          do (progn
+          do (when (> i burst)
                (setf i 1)
                (format-timestring t (now) :format *local-time-format*)
                (write-line reply)))))
