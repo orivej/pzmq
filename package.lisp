@@ -46,22 +46,25 @@ Consult @a[http://api.zeromq.org/4-0:zmq]{official C API reference} first.
    #:eagain
    #:efault
    #:efsm
+   #:ehostunreach
    #:eintr
    #:einval
    #:emfile
    #:emthread
-   #:enocompatprot
+   #:enocompatproto
    #:enodev
+   #:enoent
    #:enomem
    #:enotsock
    #:enotsup
-   #:eprotonosuppo
+   #:eprotonosupport
    #:eterm
    ;; - context
    #:ctx-new
    #:ctx-set
    #:ctx-get
-   #:ctx-destroy
+   #:ctx-shutdown
+   #:ctx-destroy #:ctx-term
    ;; - message
    #:%msg
    #:msg-init
@@ -91,6 +94,7 @@ Consult @a[http://api.zeromq.org/4-0:zmq]{official C API reference} first.
 
    ;; Lisp API:
    #:with-message
+   #:with-messages
    #:*default-context*
    #:*restart-interrupted-calls*
    #:recv-string

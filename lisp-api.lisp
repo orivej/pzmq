@@ -7,6 +7,12 @@
      (unwind-protect (progn ,@body)
        (msg-close ,name))))
 
+(defmacro with-messages ((&rest names) &body body)
+  (if (not names) `(progn ,@body)
+      `(with-message ,(first names)
+         (with-messages ,(rest names)
+           ,@body))))
+
 (defun recv-string (socket &key dontwait (encoding cffi:*default-foreign-encoding*))
   "Receive a message part from a socket as a string."
   (with-message msg
@@ -19,14 +25,14 @@
   "Implicit context from @fun{WITH-CONTEXT} for @fun{WITH-SOCKET}.")
 
 (defmacro with-context (name-and-options &body body)
-  "Initialize and destroy ZMQ context around body.
+  "Initialize and terminate ZMQ context around body.
 
 Use NIL for @em{anonymous context}, stored in @variable{*DEFAULT-CONTEXT*}.
 
 Omit @fun{WITH-CONTEXT} altogether, and @fun{WITH-SOCKET} will establish it by
 itself.
 
-Note: unwind-protected @fun{CTX-DESTROY} will not return until all governed
+Note: unwind-protected @fun{CTX-TERM} will not return until all governed
 sockets have sent all queued messages, unless they limited their wait time
 with :LINGER socket parameter.
 @arg[name-and-options]{name | (name options)}
@@ -44,7 +50,7 @@ with :LINGER socket parameter.
               ,(when options
                  `(ctx-set *default-context* ,@options))
               ,@body)
-         (ctx-destroy ,(or name '*default-context*))))))
+         (ctx-term ,(or name '*default-context*))))))
 
 (defmacro with-socket (name-and-context type-and-options &body body)
   "Initialize and close ZMQ socket around body.  Type is one of the types accepted
@@ -80,8 +86,8 @@ this block.
                      ,@body)
                 (close ,name)))
          (when ,implicit-context
-           (ctx-destroy (prog1 *default-context*
-                          (setf *default-context* nil))))))))
+           (ctx-term (prog1 *default-context*
+                       (setf *default-context* nil))))))))
 
 (defmacro with-sockets ((&rest socket-definitions) &body body)
   "Nest multiple sockets."

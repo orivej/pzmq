@@ -90,7 +90,7 @@ after itself.")
   `(progn ,@(loop for child in children
                   collect `(define-condition ,child (,parent) ()))))
 ;;; Generate from "grovel.lisp", export in "package.lisp"
-(define-conditions libzmq-error eaddrinuse eaddrnotavail eagain efault efsm eintr einval emfile emthread enocompatprot enodev enomem enotsock enotsup eprotonosuppo eterm)
+(define-conditions libzmq-error eaddrinuse eaddrnotavail eagain efault efsm ehostunreach eintr einval emfile emthread enocompatproto enodev enoent enomem enotsock enotsup eprotonosupport eterm)
 
 
 (defun libzmq-error-condition (errno)
@@ -135,7 +135,7 @@ after itself.")
 
 (defcfun ("zmq_ctx_new" ctx-new) :pointer
   "Create new ØMQ context.
-@see{CTX-DESTROY}")
+@see{CTX-TERM}")
 
 (defcfun ("zmq_ctx_set" %ctx-set) :int
   "Set context options."
@@ -165,7 +165,15 @@ Get context options."
               (:io-threads +io-threads+)
               (:max-sockets +max-sockets+))))
 
+(defcfun* ctx-shutdown (:int)
+  "Shutdown a ØMQ context.  Non-blocking.  Optional before @see{CTX-TERM}"
+  (context :pointer))
+
 (defcfun* ctx-destroy (:int)
+  "Destroy a ØMQ context.  Deprecated synonym for @see{CTX-TERM}"
+  (context :pointer))
+
+(defcfun* ctx-term (:int)
   "Destroy a ØMQ context."
   (context :pointer))
 
@@ -312,11 +320,12 @@ Low-level API. Consider using @fun{WITH-MESSAGE}."
   :req :rep
   :dealer :router
   :pull :push
-  :xpub :xsub)
+  :xpub :xsub
+  :stream)
 
 (defcfun* socket (:pointer)
   "Create ØMQ socket.
-@arg[type]{:pair | :pub | :sub | :req | :rep | :dealer | :router | :pull | :push | :xpub | :xsub}"
+@arg[type]{:pair | :pub | :sub | :req | :rep | :dealer | :router | :pull | :push | :xpub | :xsub | :stream}"
   (context :pointer)
   (type socket-type))
 
@@ -347,15 +356,33 @@ Low-level API. Consider using @fun{WITH-MESSAGE}."
   (:multicast-hops 25)
   (:rcvtimeo 27)
   (:sndtimeo 28)
-  (:ipv4only 31)
+  (:ipv4only 31) ; deprecated by :ipv6
   (:last-endpoint 32)
-  (:router-behavior 33)
+  (:router-behavior 33) ; deprecated by :router-mandatory
+  (:router-mandatory 33)
   (:tcp-keepalive 34)
   (:tcp-keepalive-cnt 35)
   (:tcp-keepalive-idle 36)
   (:tcp-keepalive-intvl 37)
   (:tcp-accept-filter 38)
-  (:delay-attach-on-connect 39))
+  (:delay-attach-on-connect 39) ; deprecated by :immediate
+  (:immediate 39)
+  (:xpub-verbose 40)
+  (:router-raw 41)
+  (:ipv6 42)
+  (:mechanism 43)
+  (:plain-server 44)
+  (:plain-username 45)
+  (:plain-password 46)
+  (:curve-server 47)
+  (:curve-publickey 48)
+  (:curve-secretkey 49)
+  (:curve-serverkey 50)
+  (:probe-router 51)
+  (:req-correlate 52)
+  (:req-relaxed 53)
+  (:conflate 54)
+  (:zap-domain 55))
 
 (defbitfield (events :short)
   :pollin
@@ -416,7 +443,9 @@ Low-level API. Consider using @fun{WITH-MESSAGE}."
   (option-len :uint))
 
 (defun setsockopt (socket option-name option-value)
-  "Set ØMQ socket options."
+  "Set ØMQ socket options.
+Boolean options are Lisp boolean.
+Binary options are only supported as strings."
   (flet ((call (val size)
            (declare (type integer size))
            (with-c-error-check (:int)
@@ -433,7 +462,10 @@ Low-level API. Consider using @fun{WITH-MESSAGE}."
          (setf (mem-ref val :int64) option-value)
          (call val (foreign-type-size :int64))))
       ;; binary 1..255
-      ((:subscribe :unsubscribe :identity :tcp-accept-filter)
+      ((:subscribe :unsubscribe :identity :tcp-accept-filter
+        :plain-username :plain-password
+        :curve-publickey :curve-secretkey
+        :curve-serverkey :zap-domain)
        (if option-value
            (with-foreign-string ((buf size) option-value)
              (call buf (1- size)))
@@ -442,7 +474,12 @@ Low-level API. Consider using @fun{WITH-MESSAGE}."
        (with-foreign-object (val :int)
          (setf (mem-ref val :int)
                (case option-name
-                 ((:ipv4only :delay-attach-on-connect :router-behavior)
+                 ((:ipv6 :ipv4only
+                   :immediate :delay-attach-on-connect
+                   :router-mandatory :router-behavior
+                   :router-raw :probe-router
+                   :xpub-verbose :req-correlate :req-relaxed
+                   :plain-server :curve-server :conflate)
                   (if option-value 1 0))
                  (t
                   option-value)))
@@ -478,18 +515,25 @@ Connected socket may not receive messages sent before it was bound.
   (declare (optimize speed))
   "Send a message part on a socket.
 
-@arg[buf]{string, or foreign byte array}
+@arg[buf]{string, or foreign byte array, or nil for an empty message}
 @arg[len]{ignored, or array size} "
   (let ((flags (+ (if dontwait 1 0) (if sndmore 2 0))))
-    (if (stringp buf)
-        (with-foreign-string ((buf len) (if len (subseq buf 0 len) buf)
-                              :encoding encoding)
-          (with-c-error-check (:int t)
-            (locally (declare (type (integer 1 #.most-positive-fixnum)
-                                    len))
-              (%send socket buf (1- len) flags))))
-        (with-c-error-check (:int t)
-          (%send socket buf len flags)))))
+    (cond
+      ((or (not buf)
+           (eql len 0)
+           (and (stringp buf) (zerop (length buf))))
+       (with-c-error-check (:int t)
+         (%send socket (cffi:null-pointer) 0 flags)))
+      ((stringp buf)
+       (with-foreign-string ((buf len) (if len (subseq buf 0 len) buf)
+                             :encoding encoding)
+         (with-c-error-check (:int t)
+           (locally (declare (type (integer 1 #.most-positive-fixnum)
+                                   len))
+             (%send socket buf (1- len) flags)))))
+      (t
+       (with-c-error-check (:int t)
+         (%send socket buf len flags))))))
 
 (defcfun ("zmq_recv" %recv) :int
   "Receive a message part from a socket."

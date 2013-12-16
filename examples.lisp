@@ -408,3 +408,32 @@
           until (string= "END" broadcast)
           count t into nupdates
           finally (format t "Received ~d updates~%" nupdates))))
+
+;;; New ZMQ stream socket example
+;;; http://api.zeromq.org/4-0:zmq-socket
+
+(defun http-join (&rest ss)
+  (let ((format (format nil "~~{~~a~~^~c~c~~}" (code-char 13) (code-char 10))))
+    (format nil format ss)))
+
+(defvar *http-response*
+  (http-join "HTTP/1.0 200 OK"
+             "Content-Type: text/plain; charset=utf-8"
+             ""
+             "Hello, World!"))
+
+(defun http-server (&optional (listen-address "tcp://*:8080"))
+  (pzmq:with-socket socket :stream
+    (pzmq:bind socket listen-address)
+    (pzmq:with-messages (id id2 req)
+      (loop
+        (write-line "Waiting for request")
+        (pzmq:msg-recv id socket)
+        (pzmq:msg-copy id2 id)
+        (pzmq:msg-recv req socket)
+        (write-line "Sending response")
+        (pzmq:msg-send id socket :sndmore t)
+        (pzmq:send socket *http-response*)
+        (write-line "Closing connection")
+        (pzmq:msg-send id2 socket :sndmore t)
+        (pzmq:send socket nil)))))
