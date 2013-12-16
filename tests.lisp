@@ -8,7 +8,8 @@
 
 (test supported-version
   (let+ (((major minor &ign) (pzmq:version)))
-    (is (and (>= major 3) (>= minor 2)))))
+    (is (or (= major 4)
+            (and (= major 3) (= minor 2))))))
 
 (test request-response
   (pzmq:with-sockets ((sender :req) (receiver :rep))
