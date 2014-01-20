@@ -28,6 +28,6 @@
   :encoding :utf-8
   :components ((:file "examples")))
 
-(defmethod asdf:perform ((op asdf:test-op) (system (eql (find-system :pzmq))))
+(defmethod asdf:perform ((op asdf:test-op) (system (eql (asdf:find-system :pzmq))))
   (asdf:load-system :pzmq-test)
   (funcall (intern (string '#:run!) :fiveam) :pzmq))
