@@ -575,3 +575,9 @@ Connected socket may not receive messages sent before it was bound.
   (device device)
   (frontend :pointer)
   (backend :pointer))
+
+(defcfun* proxy (:int t)
+  "Start a proxy"
+  (frontend :pointer)
+  (backend :pointer)
+  (capture :pointer))
