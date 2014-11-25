@@ -11,7 +11,9 @@
                (cffi-grovel:grovel-file "grovel") ; error constants
                (:file "c-api") ; C API and obvious wrappers
                (:file "lisp-api") ; more elaborate wrappers
-               ))
+               )
+  :in-order-to ((test-op (load-op :pzmq-test)))
+  :perform (test-op (o c) (symbol-call :fiveam :run! :pzmq)))
 
 (asdf:defsystem pzmq-compat
   :depends-on (pzmq)
@@ -27,7 +29,3 @@
   :depends-on (pzmq split-sequence iterate local-time bordeaux-threads)
   :encoding :utf-8
   :components ((:file "examples")))
-
-(defmethod asdf:perform ((op asdf:test-op) (system (eql (asdf:find-system :pzmq))))
-  (asdf:load-system :pzmq-test)
-  (funcall (intern (string '#:run!) :fiveam) :pzmq))
