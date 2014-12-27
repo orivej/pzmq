@@ -91,6 +91,7 @@ Consult @a[http://api.zeromq.org/4-0:zmq]{official C API reference} first.
    #:poll
    ;; - device
    #:device
+   #:proxy
 
    ;; Lisp API:
    #:with-message
@@ -102,5 +103,4 @@ Consult @a[http://api.zeromq.org/4-0:zmq]{official C API reference} first.
    #:with-socket
    #:with-sockets
    #:with-poll-items
-   #:revents
-   #:proxy))
+   #:revents))

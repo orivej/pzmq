@@ -570,6 +570,7 @@ Connected socket may not receive messages sent before it was bound.
 
 (defcfun* device (:int t)
   "Start built-in ØMQ device in the calling thread. Never returns unless interrupted.
+Deprecated by @fun{PROXY}
 @arg[device]{:streamer | :forwarder | :queue}
 @arg[frontend, backend]{socket}"
   (device device)
@@ -577,7 +578,8 @@ Connected socket may not receive messages sent before it was bound.
   (backend :pointer))
 
 (defcfun* proxy (:int t)
-  "Start a proxy"
+  "Start built-in ØMQ proxy in the current application thread.
+@arg[frontend, backend, capture]{socket}"
   (frontend :pointer)
   (backend :pointer)
   (capture :pointer))
