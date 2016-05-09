@@ -1,6 +1,7 @@
 (in-package #:pzmq)
 (include "zmq.h")
 (ctype size "size_t")
+(cstruct %msg "zmq_msg_t")
 (constantenum
  c-errors
 ;;; awk -F '[*:]' '/\*E.+\*::/ {print $2}' doc/* | sort | uniq | awk '{print " ((:" tolower($1),  "\"" $1 "\"))"}' | xclip

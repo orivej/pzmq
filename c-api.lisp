@@ -192,10 +192,6 @@ Get context options."
 
 ;;; Message
 
-(defcstruct %msg
-  "Concealed structure, defined only to know its size."
-  (_ :unsigned-char :count 32))
-
 (defcfun* msg-init (:int)
   "Initialise empty ØMQ message.
 
