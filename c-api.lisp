@@ -396,7 +396,7 @@ Low-level API. Consider using @fun{WITH-MESSAGE}."
   "Get ØMQ socket options.
 @arg[option-name]{keyword}
 @return{integer, or string for :identity and :last-endpoint}"
-  (with-foreign-object (len :uint)
+  (with-foreign-object (len 'size)
     (flet ((call (val)
              (with-c-error-check (:int)
                (%getsockopt socket option-name val len))))
@@ -404,24 +404,24 @@ Low-level API. Consider using @fun{WITH-MESSAGE}."
         ;; uint64
         (:affinity
          (with-foreign-object (val :uint64)
-           (setf (mem-ref len :uint) (foreign-type-size :uint64))
+           (setf (mem-ref len 'size) (foreign-type-size :uint64))
            (call val)
            (mem-ref val :uint64)))
         ;; int64
         (:maxmsgsize
          (with-foreign-object (val :int64)
-           (setf (mem-ref len :uint) (foreign-type-size :int64))
+           (setf (mem-ref len 'size) (foreign-type-size :int64))
            (call val)
            (mem-ref val :int64)))
         ;; binary 1..255
         ((:identity :last-endpoint)
          (with-foreign-pointer-as-string ((buf size) 256)
-           (setf (mem-ref len :uint) (1- size))
+           (setf (mem-ref len 'size) (1- size))
            (call buf)))
         ;; int
         (t
          (with-foreign-object (val :int)
-           (setf (mem-ref len :uint) (foreign-type-size :int))
+           (setf (mem-ref len 'size) (foreign-type-size :int))
            (call val)
            (let ((ret (mem-ref val :int)))
              (case option-name
