@@ -436,7 +436,7 @@ Low-level API. Consider using @fun{WITH-MESSAGE}."
   (socket :pointer)
   (option-name socket-options)
   (option-value :pointer)
-  (option-len :uint))
+  (option-len size))
 
 (defun setsockopt (socket option-name option-value)
   "Set ØMQ socket options.
