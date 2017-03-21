@@ -25,6 +25,12 @@
     (bt:make-thread (lambda () (sleep 0.01) (pzmq:send sender "")))
     (is (string= "" (pzmq:recv-string receiver)))))
 
+(test sockopt
+  (pzmq:with-socket s :req
+    (is (= -1 (pzmq:getsockopt s :tcp-keepalive)))
+    (is (zerop (pzmq:setsockopt s :tcp-keepalive 0)))
+    (is (zerop (pzmq:getsockopt s :tcp-keepalive)))))
+
 (defun accept-plain-auth (s)
   (pzmq:with-messages (ign id)
     (is (string= "1.0" (pzmq:recv-string s)))
