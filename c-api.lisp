@@ -34,7 +34,7 @@ Report ØMQ library version."
 ;; specific conditions like #+sbcl (sb-alien:get-errno), or use a
 ;; library like IOLIB or OSICAT for this
 
-(defcvar errno :int)
+(defcvar ("errno" %errno-variable) :int)
 
 (defvar *restart-interrupted-calls* t
   "When blocking ZMQ call returns with EINTR automatically retry it,
@@ -63,7 +63,10 @@ after itself.")
 
 (defun errno ()
   "Retrieve value of errno for the calling thread. @see{STRERROR}"
-  errno)
+  (%errno))
+
+(defun (setf errno) (new-value)
+  (setf %errno-variable new-value))
 
 (defcfun ("zmq_strerror" %strerror) :string
   "Get ØMQ error message string."
@@ -104,14 +107,14 @@ after itself.")
   (let ((ret (gensym (symbol-name '#:ret)))
         (err (gensym (symbol-name '#:err))))
     `(loop
-       (setf errno 0)
+       (setf (errno) 0)
        (let ((,ret (progn ,@body)))
          (if ,(case kind
                 (:int `(minusp (the fixnum ,ret)))
                 (:pointer `(null-pointer-p ,ret)))
              (unless (and ,allow-restart-p *restart-interrupted-calls*
-                          (= #.(foreign-enum-value 'c-errors :eintr) errno))
-               (let ((,err (make-condition (libzmq-error-condition errno) :errno errno)))
+                          (= #.(foreign-enum-value 'c-errors :eintr) (errno)))
+               (let ((,err (make-condition (libzmq-error-condition (errno)) :errno (errno))))
                  ,(if allow-restart-p
                       `(cerror "Retry ZMQ call" ,err)
                       `(error ,err))))
