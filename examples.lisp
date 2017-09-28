@@ -93,7 +93,6 @@
 
 
 ;;; Educational subscriber and publisher for the guide
-;;; NOTE: these wuclient and wuserver don't work together as concurrent threads
 
 (defun wuclient (&key (server-address "tcp://localhost:5556")
                       (filter "1000") (repetitions 100))
