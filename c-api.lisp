@@ -267,7 +267,7 @@ Low-level API. Consider using @fun{WITH-MESSAGE}."
 
 (defun msg-more (msg)
   "Indicate if there are more message parts to receive."
-  (not (zerop (%msg-more msg))))
+  (plusp (%msg-more msg)))
 
 (defcfun ("zmq_msg_get" %msg-get) :int
   "Get message property."
