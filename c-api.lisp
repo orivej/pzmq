@@ -1,7 +1,8 @@
 (in-package #:pzmq)
 
 (define-foreign-library libzmq
-  (unix (:or "libzmq.so.3.0.0" "libzmq.so.3" "libzmq"))
+  (:darwin "libzmq.dylib")
+  (:unix (:or "libzmq.so.3.0.0" "libzmq.so.3" "libzmq"))
   (t (:default "libzmq")))
 
 (use-foreign-library libzmq)

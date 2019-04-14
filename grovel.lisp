@@ -1,4 +1,8 @@
 (in-package #:pzmq)
+#+darwin
+(cc-flags "-I/opt/local/include")
+#+(or freebsd openbsd)
+(cc-flags "-I/usr/local/include")
 (include "zmq.h")
 (ctype size "size_t")
 (cstruct %msg "zmq_msg_t")
