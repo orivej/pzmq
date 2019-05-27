@@ -322,7 +322,8 @@ Low-level API. Consider using @fun{WITH-MESSAGE}."
 
 (defcenum socket-options
   (:affinity 4)
-  (:identity 5)
+  (:identity 5) ; deprecated by :routing-id
+  (:routing-id 5)
   (:subscribe 6)
   (:unsubscribe 7)
   (:rate 8)
@@ -351,7 +352,7 @@ Low-level API. Consider using @fun{WITH-MESSAGE}."
   (:tcp-keepalive-cnt 35)
   (:tcp-keepalive-idle 36)
   (:tcp-keepalive-intvl 37)
-  (:tcp-accept-filter 38)
+  (:tcp-accept-filter 38) ; deprecated
   (:delay-attach-on-connect 39) ; deprecated by :immediate
   (:immediate 39)
   (:xpub-verbose 40)
@@ -369,7 +370,41 @@ Low-level API. Consider using @fun{WITH-MESSAGE}."
   (:req-correlate 52)
   (:req-relaxed 53)
   (:conflate 54)
-  (:zap-domain 55))
+  (:zap-domain 55)
+  (:router-handover 56)
+  (:tos 57)
+  (:ipc-filter-pid 58) ; deprecated
+  (:ipc-filter-uid 59) ; deprecated
+  (:ipc-filter-gid 60) ; deprecated
+  (:connect-routing-id 61)
+  (:gssapi-server 62)
+  (:gssapi-principal 63)
+  (:gssapi-service-principal 64)
+  (:gssapi-plaintext 65)
+  (:handshake-ivl 66)
+  (:socks-proxy 68)
+  (:xpub-nodrop 69)
+  (:blocky 70)
+  (:xpub-manual 71)
+  (:xpub-welcome-msg 72)
+  (:stream-notify 73)
+  (:invert-matching 74)
+  (:heartbeat-ivl 75)
+  (:heartbeat-ttl 76)
+  (:heartbeat-timeout 77)
+  (:xpub-verboser 78)
+  (:connect-timeout 79)
+  (:tcp-maxrt 80)
+  (:thread-safe 81)
+  (:multicast-maxtpdu 84)
+  (:vmci-buffer-size 85)
+  (:vmci-buffer-min-size 86)
+  (:vmci-buffer-max-size 87)
+  (:vmci-connect-timeout 88)
+  (:use-fd 89)
+  (:gssapi-principal-nametype 90)
+  (:gssapi-service-principal-nametype 91)
+  (:bindtodevice 92))
 
 (defbitfield (events :short)
   :pollin
