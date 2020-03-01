@@ -5,6 +5,11 @@
   (t (:default "libzmq")))
 
 (use-foreign-library libzmq)
+
+;;; libzmq may depend on libsodium. Help Deploy copy it.
+;;; See https://github.com/orivej/pzmq/issues/24
+(define-foreign-library libsodium (t (:default "libsodium")))
+(ignore-errors (use-foreign-library libsodium))
 
 ;;; Misc
 
