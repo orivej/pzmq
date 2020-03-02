@@ -466,8 +466,8 @@ Low-level API. Consider using @fun{WITH-MESSAGE}."
 
 (defun setsockopt (socket option-name option-value)
   "Set ØMQ socket options.
-Boolean options are Lisp boolean.
-Binary options are only supported as strings."
+Boolean options accept generalized Lisp booleans.
+Binary options are supported either as strings or UB8 vectors."
   (flet ((call (val size)
            (declare (type integer size))
            (with-c-error-check (:int)
@@ -483,15 +483,22 @@ Binary options are only supported as strings."
        (with-foreign-object (val :int64)
          (setf (mem-ref val :int64) option-value)
          (call val (foreign-type-size :int64))))
-      ;; binary 1..255
+      ;; binary or string
       ((:subscribe :unsubscribe :identity :tcp-accept-filter
         :plain-username :plain-password
         :curve-publickey :curve-secretkey
         :curve-serverkey :zap-domain)
-       (if option-value
-           (with-foreign-string ((buf size) option-value)
-             (call buf (1- size)))
-           (call (null-pointer) 0)))
+       (etypecase option-value
+         (null
+          (call (null-pointer) 0))
+         (string
+          (with-foreign-string ((buf size) option-value)
+            (call buf (1- size))))
+         ((vector (unsigned-byte 8))
+          (let ((size (length option-value)))
+            (with-foreign-array
+                (buf option-value `(:array :unsigned-char ,size))
+              (call buf size))))))
       (t
        (with-foreign-object (val :int)
          (setf (mem-ref val :int)
