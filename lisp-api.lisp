@@ -21,6 +21,15 @@
      (foreign-string-to-lisp (msg-data msg) :count (msg-size msg) :encoding encoding)
      (getsockopt socket :rcvmore))))
 
+(defun recv-octets (socket &key dontwait)
+  "Receive a message part from a socket as an octet vector."
+  (with-message msg
+    (msg-recv msg socket :dontwait dontwait)
+    (values
+     (foreign-array-to-lisp (msg-data msg) `(:array :unsigned-char ,(msg-size msg))
+                            :element-type '(unsigned-byte 8))
+     (getsockopt socket :rcvmore))))
+
 (defvar *default-context* nil
   "Implicit context from @fun{WITH-CONTEXT} for @fun{WITH-SOCKET}.")
 

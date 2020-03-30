@@ -9,6 +9,7 @@ Consult @a[http://api.zeromq.org/4-0:zmq]{official C API reference} first.
 @aboutfun{bind}
 @aboutfun{connect}
 @aboutfun{recv-string}
+@aboutfun{recv-octets}
 @aboutfun{send}
 @aboutfun{with-poll-items}
 @aboutfun{poll}
@@ -99,6 +100,7 @@ Consult @a[http://api.zeromq.org/4-0:zmq]{official C API reference} first.
    #:*default-context*
    #:*restart-interrupted-calls*
    #:recv-string
+   #:recv-octets
    #:with-context
    #:with-socket
    #:with-sockets
