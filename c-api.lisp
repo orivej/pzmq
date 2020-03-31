@@ -10,7 +10,7 @@
 ;;; See https://github.com/orivej/pzmq/issues/24
 (define-foreign-library libsodium (t (:default "libsodium")))
 (ignore-errors (use-foreign-library libsodium))
-
+
 ;;; Misc
 
 (defcfun ("zmq_version" %version) :void
@@ -27,7 +27,7 @@ Report ØMQ library version."
     (%version major minor patch)
     (mapcar (lambda (ptr) (mem-ref ptr :int))
             (list major minor patch))))
-
+
 ;;; Error
 
 (defcfun ("zmq_errno" %errno) :int
@@ -546,11 +546,14 @@ Connected socket may not receive messages sent before it was bound.
 
 (defun send (socket buf &key len dontwait sndmore
                              (encoding cffi:*default-foreign-encoding*))
-  ;; (declare (optimize speed))
   "Send a message part on a socket.
 
-@arg[buf]{string, or foreign byte array, or nil for an empty message}
+@arg[buf]{string, or foreign byte array, or byte array, or nil for an empty message}
 @arg[len]{ignored, or array size} "
+  ;; NOTE: If you modify #'SEND, please uncomment the following line, make sure 
+  ;; that the changed code can not be obviously optimized further, and comment it 
+  ;; back to hide warnings from the end users.
+  ;; (declare (optimize speed))
   (let ((flags (+ (if dontwait 1 0) (if sndmore 2 0))))
     (cond
       ((or (null buf)
@@ -565,6 +568,10 @@ Connected socket may not receive messages sent before it was bound.
            (locally (declare (type (integer 1 #.most-positive-fixnum)
                                    len))
              (%send socket buf (1- len) flags)))))
+      ((typep buf '(vector (unsigned-byte 8)))
+       (with-foreign-array (pointer buf `(:array :unsigned-char ,(length buf)))
+         (with-c-error-check (:int t)
+           (%send socket pointer (length buf) flags))))
       (t
        (with-c-error-check (:int t)
          (%send socket buf len flags))))))

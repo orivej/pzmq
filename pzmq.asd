@@ -23,7 +23,7 @@
 
 (asdf:defsystem pzmq-test
   :description "ZeroMQ 3.2+ bindings: Tests (asdf:test-system :pzmq)."
-  :depends-on (pzmq fiveam let-plus bordeaux-threads)
+  :depends-on (pzmq fiveam let-plus bordeaux-threads babel)
   :encoding :utf-8
   :components ((:file "tests")))
 

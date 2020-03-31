@@ -14,11 +14,24 @@
            ,@body))))
 
 (defun recv-string (socket &key dontwait (encoding cffi:*default-foreign-encoding*))
-  "Receive a message part from a socket as a string."
+  "Receive a message part from a socket as a string.
+@return{A string as the primary value, and the value of the socket
+ option :rcvmore as the secondary value.}"
   (with-message msg
     (msg-recv msg socket :dontwait dontwait)
     (values
      (foreign-string-to-lisp (msg-data msg) :count (msg-size msg) :encoding encoding)
+     (getsockopt socket :rcvmore))))
+
+(defun recv-octets (socket &key dontwait)
+  "Receive a message part from a socket as an octet vector.
+@return{A (vector (unsigned-byte 8)) as the primary value, and the value
+ of the socket option :rcvmore as the secondary value.}"
+  (with-message msg
+    (msg-recv msg socket :dontwait dontwait)
+    (values
+     (foreign-array-to-lisp (msg-data msg) `(:array :unsigned-char ,(msg-size msg))
+                            :element-type '(unsigned-byte 8))
      (getsockopt socket :rcvmore))))
 
 (defvar *default-context* nil
