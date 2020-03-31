@@ -14,6 +14,7 @@ Consult @a[http://api.zeromq.org/4-0:zmq]{official C API reference} first.
 @aboutfun{with-poll-items}
 @aboutfun{poll}
 @aboutfun{revents}
+@aboutfun{curve-keypair}
 @end{section}
 
 @begin[Middle-level API]{section}
@@ -105,4 +106,5 @@ Consult @a[http://api.zeromq.org/4-0:zmq]{official C API reference} first.
    #:with-socket
    #:with-sockets
    #:with-poll-items
-   #:revents))
+   #:revents
+   #:curve-keypair))

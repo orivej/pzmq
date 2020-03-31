@@ -624,3 +624,39 @@ Deprecated by @fun{PROXY}
   (frontend :pointer)
   (backend :pointer)
   (capture :pointer))
+
+
+;;; CurveZMQ
+
+(defcfun ("zmq_z85_decode" z85-decode) :pointer
+  (destination :pointer)
+  (string :pointer))
+
+(defcfun ("zmq_z85_encode" z85-encode) :pointer
+  (destination :pointer)
+  (data :pointer)
+  (size size))
+
+(defcfun ("zmq_curve_keypair" %curve-keypair) :int
+  (public-key :pointer)
+  (secret-key :pointer))
+
+(defun curve-keypair ()
+  "Generates and returns a CurveZMQ keypair.
+@return{(VALUES PUBLIC-KEY SECRET-KEY), both of type (VECTOR (UNSIGNED-BYTE 8) 32).}"
+  (let ((z85-type '(:array :unsigned-char 41))
+        (key-type '(:array :unsigned-char 32))
+        (byte '(unsigned-byte 8)))
+    (cffi:with-foreign-objects
+        ((public-key-z85 z85-type)
+         (public-key key-type)
+         (secret-key-z85 z85-type)
+         (secret-key key-type))
+      (with-c-error-check (:int t)
+        (%curve-keypair public-key-z85 secret-key-z85))
+      (with-c-error-check (:pointer t)
+        (z85-decode public-key public-key-z85))
+      (with-c-error-check (:pointer t)
+        (z85-decode secret-key secret-key-z85))
+      (values (foreign-array-to-lisp public-key key-type :element-type byte)
+              (foreign-array-to-lisp secret-key key-type :element-type byte)))))
