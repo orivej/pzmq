@@ -14,7 +14,8 @@
            ,@body))))
 
 (defun recv-string (socket &key dontwait (encoding cffi:*default-foreign-encoding*))
-  "Receive a message part from a socket as a string."
+  "Receive a message part from a socket as a string.
+@return{A string.}"
   (with-message msg
     (msg-recv msg socket :dontwait dontwait)
     (values
@@ -22,7 +23,8 @@
      (getsockopt socket :rcvmore))))
 
 (defun recv-octets (socket &key dontwait)
-  "Receive a message part from a socket as an octet vector."
+  "Receive a message part from a socket as an octet vector.
+@return{A (vector (unsigned-byte 8)).}"
   (with-message msg
     (msg-recv msg socket :dontwait dontwait)
     (values
