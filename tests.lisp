@@ -106,3 +106,18 @@
     (accept-plain-auth-octets authenticator)
     (pzmq:send sender (string-to-octets ""))
     (is (equalp (string-to-octets "") (pzmq:recv-octets receiver)))))
+
+(test curve ()
+  (multiple-value-bind (server-public server-secret) (pzmq:curve-keypair)
+    (multiple-value-bind (client-public client-secret) (pzmq:curve-keypair)
+      (pzmq:with-sockets ((server (:req :curve-server 1
+                                        :curve-publickey server-public
+                                        :curve-secretkey server-secret))
+                          (client (:rep :curve-publickey client-public
+                                        :curve-secretkey client-secret
+                                        :curve-serverkey server-public)))
+        (pzmq:bind server "tcp://*:5555")
+        (pzmq:connect client "tcp://localhost:5555")
+        (let ((string "1234567"))
+          (pzmq:send server string)
+          (is (string= string (pzmq:recv-string client))))))))
