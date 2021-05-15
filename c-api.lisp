@@ -583,9 +583,13 @@ Connected socket may not receive messages sent before it was bound.
   (len size)
   (flags :int))
 
+;; NOTE: In recent versions of libzmq the type zmq_fd_t is intruduced to account
+;; for the varying size of the fd slot. Unfortunately earlier versions used an
+;; #ifdef to substitute int with SOCKET on Windows so we cannot grovel this type
+;; easily.
 (defcstruct pollitem
   (socket :pointer)
-  (fd :int)
+  (fd #+(and windows 64-bit) :uint64 #-(and windows 64-bit) :int)
   (events events)
   (revents events))
 
