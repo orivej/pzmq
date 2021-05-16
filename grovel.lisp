@@ -2,6 +2,14 @@
 (include "zmq.h")
 (ctype size "size_t")
 (cstruct %msg "zmq_msg_t")
+(bitfield (events :base-type :short)
+  ((:pollin "ZMQ_POLLIN"))
+  ((:pollout "ZMQ_POLLOUT"))
+  ((:pollerr "ZMQ_POLLERR")))
+(cstruct pollitem "zmq_pollitem_t"
+  (socket "socket" :type :pointer)
+  (events "events" :type events)
+  (revents "revents" :type events))
 (constantenum
  c-errors
 ;;; awk -F '[*:]' '/\*E.+\*::/ {print $2}' doc/* | sort | uniq | awk '{print " ((:" tolower($1),  "\"" $1 "\"))"}' | xclip

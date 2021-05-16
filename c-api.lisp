@@ -411,11 +411,6 @@ Low-level API. Consider using @fun{WITH-MESSAGE}."
   (:gssapi-service-principal-nametype 91)
   (:bindtodevice 92))
 
-(defbitfield (events :short)
-  :pollin
-  :pollout
-  :pollerr)
-
 (defcfun ("zmq_getsockopt" %getsockopt) :int
   "Get ØMQ socket options."
   (socket :pointer)
@@ -582,12 +577,6 @@ Connected socket may not receive messages sent before it was bound.
   (buf :string)
   (len size)
   (flags :int))
-
-(defcstruct pollitem
-  (socket :pointer)
-  (fd :int)
-  (events events)
-  (revents events))
 
 (defcfun ("zmq_poll" %poll) :int
   (items :pointer)
